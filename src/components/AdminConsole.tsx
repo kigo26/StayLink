@@ -353,6 +353,68 @@ export default function AdminConsole({
 
       </div>
 
+      {/* HQ ADMIN PROPERTY VERIFICATION */}
+      <div className="glass bg-white/2 rounded-2.5xl p-5 border-white/5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+          <div>
+            <span className="text-[10px] bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 py-0.5 px-2 rounded-md font-extrabold uppercase tracking-widest font-mono">Hq Admin</span>
+            <h3 className="text-sm font-black uppercase tracking-wider text-indigo-400 flex items-center gap-2 mt-1">
+              <Check className="w-4.5 h-4.5" /> Property Asset Verification
+            </h3>
+            <p className="text-[11px] text-white/50">Verify or reject newly listed properties</p>
+          </div>
+        </div>
+
+        <div className="text-xs space-y-3 max-h-[300px] overflow-y-auto pr-1 no-scrollbar scrollbar-none">
+          {properties.filter(p => !p.verifiedByAdmin && p.verificationStatus !== 'rejected').length === 0 ? (
+            <div className="text-center py-8 text-white/40 border border-dashed border-white/10 rounded-2xl bg-white/1">
+              <p className="text-xs font-bold uppercase tracking-wider font-mono">No pending verification</p>
+              <p className="text-[10px] text-white/30 mt-1 leading-normal">All properties have been verified.</p>
+            </div>
+          ) : (
+            properties.filter(p => !p.verifiedByAdmin && p.verificationStatus !== 'rejected').map(prop => (
+              <div key={prop.id} className="p-3 bg-white/3 hover:bg-white/5 border border-white/5 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-3 transition overflow-hidden">
+                <div className="flex items-center gap-3">
+                  <img src={prop.images[0]} className="w-11 h-11 rounded-lg object-cover border border-white/10 shrink-0" />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[9px] text-white/40 bg-white/5 px-1.5 py-0.5 rounded border border-white/10 font-bold">{prop.id}</span>
+                      <span className="px-2 py-0.5 rounded border text-[9px] uppercase font-bold tracking-wider bg-orange-950 text-orange-300 border-orange-900">
+                        {prop.verificationStatus || 'Pending'}
+                      </span>
+                    </div>
+                    <h4 className="font-bold text-white mt-1 leading-tight line-clamp-1">{prop.title}</h4>
+                    <p className="text-[10px] text-white/50 mt-0.5">
+                      Host: <span className="text-neutral-200 font-semibold">{prop.landlordName}</span>
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    onClick={() => {
+                      const updated = properties.map(p => p.id === prop.id ? { ...p, verifiedByAdmin: true, verificationStatus: 'verified' as const } : p);
+                      onUpdateProperties(updated);
+                    }}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px] font-sans px-3 py-1.5 rounded-lg transition uppercase tracking-wider cursor-pointer"
+                  >
+                    Verify
+                  </button>
+                  <button
+                    onClick={() => {
+                      const updated = properties.map(p => p.id === prop.id ? { ...p, verificationStatus: 'rejected' as const } : p);
+                      onUpdateProperties(updated);
+                    }}
+                    className="bg-rose-950 hover:bg-rose-900 border border-rose-800 text-rose-300 font-bold text-[10px] font-sans px-3 py-1.5 rounded-lg transition uppercase tracking-wider cursor-pointer"
+                  >
+                    Reject
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
       {/* Bookings & Escrow Dispatch Registry */}
       <div className="glass bg-white/2 rounded-2.5xl p-5 border-white/5 space-y-4">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">

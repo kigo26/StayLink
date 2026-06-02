@@ -266,7 +266,10 @@ export const INITIAL_ROOMMATES: RoommateProfile[] = [
     cleanliness: 'High',
     sleepSchedule: 'Early Bird',
     hobbies: ['Painting', 'Yoga', 'Cooking Swahili food', 'Photography'],
-    compatibilityScore: 92
+    compatibilityScore: 92,
+    rentPercentage: 50,
+    terms: 'I cover exactly 50% of the rent. Looking for long-term lease. Guests are fine, but no late parties.',
+    partnerFound: false
   },
   {
     uid: 'user_mwangi_j',
@@ -280,7 +283,10 @@ export const INITIAL_ROOMMATES: RoommateProfile[] = [
     cleanliness: 'Medium',
     sleepSchedule: 'Night Owl',
     hobbies: ['Coding', 'Gaming', 'Hiking Aberdares', 'Jazz Music'],
-    compatibilityScore: 84
+    compatibilityScore: 84,
+    rentPercentage: 60,
+    terms: 'I am willing to pay 60% if I get the master bedroom. Pets are fine but I need quiet hours during weekdays.',
+    partnerFound: false
   },
   {
     uid: 'user_fatuma',

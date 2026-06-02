@@ -10,11 +10,13 @@ import {
   ChevronLeft, Play, Pause, Compass, Share2, DollarSign, Wallet, Phone, 
   Video, Check, AlertTriangle, Menu, Send, Mic, BadgePercent, Lock, 
   Award, QrCode, Globe, CheckCircle2, RotateCcw, Flame, Bus, LogOut,
-  Smartphone, ShieldCheck, RefreshCw
+  Smartphone, ShieldCheck, RefreshCw, Plus, Image as ImageIcon, Camera
 } from 'lucide-react';
 import { Property, RoommateProfile, UserProfile, Message, ChatSession, Booking, Transaction, PlatformStats } from '../types';
 import AdminConsole from './AdminConsole';
 import MapTracker from './MapTracker';
+import AddPropertyScreen from './AddPropertyScreen';
+import CohortPreferencesScreen from './CohortPreferencesScreen';
 import { ErrorBoundary } from './ErrorBoundary';
 import { useSystemRecovery } from '../hooks/useSystemRecovery';
 import { db, auth } from '../firebase';
@@ -29,6 +31,7 @@ interface EmulatorProps {
   messagesList: Record<string, Message[]>;
   onStateUpdate: (data: {
     properties?: Property[];
+    roommates?: RoommateProfile[];
     chats?: ChatSession[];
     messagesList?: Record<string, Message[]>;
     transactions?: Transaction[];
@@ -219,7 +222,19 @@ export default function MobileEmulator({
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [aiSearchRapport, setAiSearchRapport] = useState('');
-  const [filteredProperties, setFilteredProperties] = useState<Property[]>(properties.filter(p => !p.isFlagged));
+
+  const getAvailableProps = (props: Property[], typeFilter: string = 'all') => {
+    return props.filter(p => 
+      !p.isFlagged && 
+      (p.verificationStatus === 'verified' || p.verifiedByAdmin || p.verificationStatus === undefined) &&
+      p.availabilityStatus !== 'booked' && 
+      p.availabilityStatus !== 'sold' && 
+      p.availabilityStatus !== 'rented' &&
+      (typeFilter === 'all' || p.type === typeFilter)
+    );
+  };
+
+  const [filteredProperties, setFilteredProperties] = useState<Property[]>(getAvailableProps(properties));
   const [selectedType, setSelectedType] = useState<string>('all');
 
   // Interactive details state
@@ -362,14 +377,14 @@ export default function MobileEmulator({
 
   // Synchronize listing changes
   useEffect(() => {
-    setFilteredProperties(properties.filter(p => !p.isFlagged));
-  }, [properties]);
+    setFilteredProperties(getAvailableProps(properties, selectedType));
+  }, [properties, selectedType]);
 
   // Handle Search using server API
   const handleAISearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim()) {
-      setFilteredProperties(properties.filter(p => !p.isFlagged));
+      setFilteredProperties(getAvailableProps(properties, selectedType));
       setAiSearchRapport('');
       return;
     }
@@ -383,7 +398,7 @@ export default function MobileEmulator({
       });
       const data = await response.json();
       if (data.success) {
-        setFilteredProperties(data.results);
+        setFilteredProperties(getAvailableProps(data.results, selectedType));
         setAiSearchRapport(data.aiResponse);
       }
     } catch (err) {
@@ -723,6 +738,16 @@ export default function MobileEmulator({
       onAddTransaction(newPayoutTrx);
       onAddTransaction(newCommTrx);
 
+      // Update property availability status
+      const updatedProperties = properties.map(p => {
+        if (p.id === activeProperty!.id) {
+          const availability: 'sold' | 'booked' | 'rented' | 'available' = p.type === 'sale' ? 'sold' : 'booked';
+          return { ...p, availabilityStatus: availability };
+        }
+        return p;
+      });
+      onStateUpdate({ properties: updatedProperties });
+
       // Deduct wallet local or update references
       setUserProfile(prev => ({
         ...prev,
@@ -1018,11 +1043,7 @@ export default function MobileEmulator({
                       key={cat.id}
                       onClick={() => {
                         setSelectedType(cat.id);
-                        if (cat.id === 'all') {
-                          setFilteredProperties(properties.filter(p => !p.isFlagged));
-                        } else {
-                          setFilteredProperties(properties.filter(p => p.type === cat.id && !p.isFlagged));
-                        }
+                        setFilteredProperties(getAvailableProps(properties, cat.id));
                       }}
                       className={`flex items-center gap-1.5 px-3 py-1.8 rounded-full text-xs font-semibold whitespace-nowrap transition ${
                         isSel ? 'bg-blue-600 text-white shadow-xs' : 'bg-white text-neutral-600 border border-neutral-200'
@@ -1141,7 +1162,7 @@ export default function MobileEmulator({
                     <p className="text-xs text-neutral-600 font-medium">Hapana! No listings matched your exact search filters.</p>
                     <button 
                       onClick={() => {
-                        setFilteredProperties(properties.filter(p => !p.isFlagged));
+                        setFilteredProperties(getAvailableProps(properties, selectedType));
                         setSearchQuery('');
                         setAiSearchRapport('');
                       }} 
@@ -1251,7 +1272,7 @@ export default function MobileEmulator({
                     <h4 className="text-sm font-bold text-neutral-900 uppercase tracking-tight">Active Roommate Seeker matches</h4>
                   </div>
                   <div className="flex gap-3 overflow-x-auto scrollbar-none no-scrollbar py-2">
-                    {roommates.map(seeker => (
+                    {roommates.filter(r => !r.partnerFound).map(seeker => (
                       <div 
                         key={seeker.uid}
                         onClick={() => triggerRoommateMatch(seeker)}
@@ -1275,6 +1296,16 @@ export default function MobileEmulator({
                 </div>
 
               </div>
+
+              {/* Add Property FAB */}
+              {['landlord', 'agency', 'Cohort', 'seller'].includes(userProfile.role) && (
+                <button 
+                  onClick={() => setActiveScreen('add_property')}
+                  className="absolute bottom-20 right-4 z-50 w-14 h-14 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-indigo-700 transition cursor-pointer"
+                >
+                  <Plus className="w-6 h-6" />
+                </button>
+              )}
 
               {/* FLOATING ACTION PREVIEW BAR */}
               <div className="h-16 bg-white border-t border-neutral-200 px-6 flex justify-between items-center z-40 sticky bottom-0 left-0 w-full shadow-md">
@@ -1650,9 +1681,19 @@ export default function MobileEmulator({
                   <div className="flex gap-2 flex-wrap mt-1">
                     <span className="px-3 py-1 bg-sky-50 text-sky-700 text-xs font-semibold rounded-full border border-sky-100">Occupation: {activePartner.occupation}</span>
                     <span className="px-3 py-1 bg-sky-50 text-sky-700 text-xs font-semibold rounded-full border border-sky-100">Budget Limit: KSh {activePartner.budget.toLocaleString()}/mo</span>
+                    {activePartner.rentPercentage && (
+                      <span className="px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-full border border-indigo-100">Rent Split: {activePartner.rentPercentage}%</span>
+                    )}
                     <span className="px-3 py-1 bg-sky-50 text-sky-700 text-xs font-semibold rounded-full border border-sky-100">Sleep: {activePartner.sleepSchedule}</span>
                     <span className="px-3 py-1 bg-sky-50 text-sky-700 text-xs font-semibold rounded-full border border-sky-100">Hygiene: {activePartner.cleanliness} Clean</span>
                   </div>
+                  
+                  {activePartner.terms && (
+                    <div className="mt-3 p-3 bg-neutral-50 rounded-xl border border-neutral-200">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block mb-1">Preferences & Terms</span>
+                      <p className="text-xs text-neutral-700 leading-relaxed">{activePartner.terms}</p>
+                    </div>
+                  )}
                   
                   <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 mt-2">Shared Interests</span>
                   <div className="flex gap-2 flex-wrap mt-0.5">
@@ -1664,47 +1705,62 @@ export default function MobileEmulator({
 
               </div>
 
-              <div className="w-full flex gap-3">
-                <button 
-                  onClick={() => setActiveScreen('explore')}
-                  className="flex-1 py-4 bg-white border border-neutral-200 text-neutral-600 rounded-2xl text-xs font-bold active:scale-98 transition uppercase"
-                >
-                  Explore More
-                </button>
-                <button 
+              <div className="w-full flex flex-col gap-3">
+                <div className="w-full flex gap-3">
+                  <button 
+                    onClick={() => setActiveScreen('explore')}
+                    className="flex-1 py-4 bg-white border border-neutral-200 text-neutral-600 rounded-2xl text-xs font-bold active:scale-98 transition uppercase"
+                  >
+                    Explore More
+                  </button>
+                  <button 
+                    onClick={() => {
+                      // Create simulated roommate partner properties for details and chatting
+                      const mockRoommateProp: Property = {
+                        id: `prop_roommate_${activePartner.uid}`,
+                        title: `Shared Suite with ${activePartner.name}`,
+                        description: `Perfect roommate flatting in Nairobi!`,
+                        price: activePartner.budget,
+                        location: 'Westlands, Nairobi',
+                        coordinates: { lat: -1.2610, lng: 36.8090 },
+                        type: 'roommate',
+                        images: ['https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?q=80&w=600&auto=format&fit=crop'],
+                        bedrooms: 2,
+                        bathrooms: 2,
+                        amenities: ['Private Bathroom', 'High-speed internet', 'Shared Kitchen'],
+                        landlordId: activePartner.uid,
+                        landlordName: activePartner.name,
+                        landlordAvatar: activePartner.avatar,
+                        aiQualityScore: 92,
+                        neighborhoodMetrics: { safety: 88, transit: 90, noise: 35, hospitalsNear: 2, schoolsNear: 3, mallsNear: 2, commuteToCBD: '15 mins via matatu' },
+                        responseSpeedMinutes: 4,
+                        bookingSuccessRate: 98,
+                        isPromoted: false,
+                        isFlagged: false,
+                        createdAt: new Date().toISOString(),
+                        likesCount: 12,
+                        commentsCount: 2
+                      };
+                      openChatWithLandlord(mockRoommateProp);
+                    }}
+                    className="flex-1 py-4 bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] text-white rounded-2xl text-xs font-bold shadow-md active:scale-98 transition uppercase flex items-center justify-center gap-1.5"
+                  >
+                    <MessageSquare className="w-4 h-4 text-white" />
+                    Connect Instantly
+                  </button>
+                </div>
+                <button
                   onClick={() => {
-                    // Create simulated roommate partner properties for details and chatting
-                    const mockRoommateProp: Property = {
-                      id: `prop_roommate_${activePartner.uid}`,
-                      title: `Shared Suite with ${activePartner.name}`,
-                      description: `Perfect roommate flatting in Nairobi!`,
-                      price: activePartner.budget,
-                      location: 'Westlands, Nairobi',
-                      coordinates: { lat: -1.2610, lng: 36.8090 },
-                      type: 'roommate',
-                      images: ['https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?q=80&w=600&auto=format&fit=crop'],
-                      bedrooms: 2,
-                      bathrooms: 2,
-                      amenities: ['Private Bathroom', 'High-speed internet', 'Shared Kitchen'],
-                      landlordId: activePartner.uid,
-                      landlordName: activePartner.name,
-                      landlordAvatar: activePartner.avatar,
-                      aiQualityScore: 92,
-                      neighborhoodMetrics: { safety: 88, transit: 90, noise: 35, hospitalsNear: 2, schoolsNear: 3, mallsNear: 2, commuteToCBD: '15 mins via matatu' },
-                      responseSpeedMinutes: 4,
-                      bookingSuccessRate: 98,
-                      isPromoted: false,
-                      isFlagged: false,
-                      createdAt: new Date().toISOString(),
-                      likesCount: 12,
-                      commentsCount: 2
-                    };
-                    openChatWithLandlord(mockRoommateProp);
+                    const updatedRoommates = roommates.map(r => 
+                      r.uid === activePartner.uid ? { ...r, partnerFound: true } : r
+                    );
+                    onStateUpdate({ roommates: updatedRoommates });
+                    setActiveScreen('explore');
                   }}
-                  className="flex-1 py-4 bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] text-white rounded-2xl text-xs font-bold shadow-md active:scale-98 transition uppercase flex items-center justify-center gap-1.5"
+                  className="w-full py-4 bg-green-600 text-white rounded-2xl text-xs font-bold shadow-md active:scale-98 transition uppercase flex items-center justify-center gap-1.5"
                 >
-                  <MessageSquare className="w-4 h-4 text-white" />
-                  Connect Instantly
+                  <CheckCircle2 className="w-4 h-4" />
+                  Agree & Confirm Match
                 </button>
               </div>
             </motion.div>
@@ -2383,6 +2439,19 @@ export default function MobileEmulator({
                   </div>
                 </div>
 
+                {userProfile.role === 'Cohort' && (
+                  <div className="bg-gradient-to-r from-purple-100 to-indigo-50 rounded-3xl p-5 border border-purple-200 shadow-2xs flex flex-col gap-3">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-500">Cohort Preferences</span>
+                    <p className="text-xs text-neutral-600 leading-relaxed font-medium">Update your rent percentage share and terms. Once you find a match, you will be delisted automatically.</p>
+                    <button 
+                      onClick={() => setActiveScreen('cohort_preferences')}
+                      className="w-full py-3 bg-indigo-600 text-white rounded-xl text-xs font-bold uppercase shadow-md active:scale-98 transition mt-2"
+                    >
+                      Update Preferences
+                    </button>
+                  </div>
+                )}
+
               </div>
 
               <div className="flex gap-2.5 w-full mt-2">
@@ -2402,6 +2471,40 @@ export default function MobileEmulator({
                 </button>
               </div>
             </motion.div>
+          )}
+
+          {/* COHORT PREFERENCES SCREEN */}
+          {activeScreen === 'cohort_preferences' && (
+            <CohortPreferencesScreen 
+              currentUser={userProfile}
+              onBack={() => setActiveScreen('profile')}
+              onSubmit={(prefs) => {
+                const existing = roommates.find(r => r.uid === prefs.uid);
+                if (existing) {
+                  const updated = roommates.map(r => r.uid === prefs.uid ? { ...r, ...prefs } : r);
+                  onStateUpdate({ roommates: updated });
+                } else {
+                  onStateUpdate({ roommates: [prefs as RoommateProfile, ...roommates] });
+                }
+                setActiveScreen('profile');
+              }}
+            />
+          )}
+
+          {/* LIST PROPERTY SCREEN */}
+          {activeScreen === 'add_property' && (
+            <AddPropertyScreen 
+              currentUser={userProfile}
+              onBack={() => setActiveScreen('explore')}
+              onSubmit={(newProp) => {
+                const fullProp: Property = {
+                  id: `prop_${Date.now()}`,
+                  ...newProp
+                } as Property;
+                onStateUpdate({ properties: [fullProp, ...properties] });
+                setActiveScreen('explore');
+              }}
+            />
           )}
 
           {/* 11. EMBEDDED ADMIN CONSOLE SCREEN */}

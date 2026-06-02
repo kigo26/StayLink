@@ -4,7 +4,7 @@
  */
 
 // Core Roles in StayLink AI Ecosystem
-export type UserRole = 'tenant' | 'landlord' | 'admin';
+export type UserRole = 'tenant' | 'landlord' | 'admin' | 'agency' | 'Cohort' | 'seller';
 
 export type PropertyType = 'apartment' | 'airbnb' | 'roommate' | 'sale' | 'hotel';
 
@@ -67,6 +67,9 @@ export interface Property {
   likesCount: number;
   commentsCount: number;
   hasVirtualTour?: boolean;
+  verificationStatus?: 'pending' | 'verified' | 'rejected';
+  verifiedByAdmin?: boolean;
+  availabilityStatus?: 'available' | 'booked' | 'sold' | 'rented';
 }
 
 export interface RoommateProfile {
@@ -81,6 +84,9 @@ export interface RoommateProfile {
   cleanliness: 'High' | 'Medium' | 'Low';
   sleepSchedule: 'Night Owl' | 'Early Bird' | 'Flexible';
   hobbies: string[];
+  rentPercentage?: number; // Rent percentage sharing preference
+  terms?: string; // Any specific terms/preferences
+  partnerFound?: boolean; // If true, they are delisted
   compatibilityScore?: number; // Real-time calculation
 }
 

@@ -396,81 +396,119 @@ export default function AdminConsole({
                 if (booking.status === 'completed') statusColor = 'bg-blue-950 text-blue-300 border-blue-900';
                 if (booking.status === 'cancelled') statusColor = 'bg-rose-950 text-rose-300 border-rose-900';
 
+                let progressWidth = 'w-1/3';
+                let progressColor = 'bg-yellow-500';
+                let progressText = 'Payment Pending';
+                
+                if (booking.status === 'active') {
+                  progressWidth = 'w-2/3';
+                  progressColor = 'bg-emerald-500';
+                  progressText = 'Escrow Held';
+                } else if (booking.status === 'completed') {
+                  progressWidth = 'w-full';
+                  progressColor = 'bg-blue-500';
+                  progressText = 'Released';
+                } else if (booking.status === 'cancelled') {
+                  progressWidth = 'w-full';
+                  progressColor = 'bg-rose-500';
+                  progressText = 'Refunded';
+                }
+
                 return (
-                  <div key={booking.id} className="p-3 bg-white/3 hover:bg-white/5 border border-white/5 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-3 transition">
-                    <div className="flex items-center gap-3">
-                      <img 
-                        src={booking.propertyImage} 
-                        alt={booking.propertyTitle} 
-                        className="w-11 h-11 rounded-lg object-cover border border-white/10 shrink-0" 
-                        referrerPolicy="no-referrer"
-                      />
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-[9px] text-white/40 bg-white/5 px-1.5 py-0.5 rounded border border-white/10 font-bold">{booking.id}</span>
-                          <span className={`px-2 py-0.5 rounded border text-[9px] uppercase font-bold tracking-wider ${statusColor}`}>
-                            {booking.status}
-                          </span>
+                  <div key={booking.id} className="p-3 bg-white/3 hover:bg-white/5 border border-white/5 rounded-2xl flex flex-col gap-3 transition overflow-hidden">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                      <div className="flex items-center gap-3">
+                        <img 
+                          src={booking.propertyImage} 
+                          alt={booking.propertyTitle} 
+                          className="w-11 h-11 rounded-lg object-cover border border-white/10 shrink-0" 
+                          referrerPolicy="no-referrer"
+                        />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-[9px] text-white/40 bg-white/5 px-1.5 py-0.5 rounded border border-white/10 font-bold">{booking.id}</span>
+                            <span className={`px-2 py-0.5 rounded border text-[9px] uppercase font-bold tracking-wider ${statusColor}`}>
+                              {booking.status}
+                            </span>
+                          </div>
+                          <h4 className="font-bold text-white mt-1 leading-tight line-clamp-1">{booking.propertyTitle}</h4>
+                          <p className="text-[10px] text-white/50 mt-0.5">
+                            Tenant: <span className="text-neutral-200 font-semibold">{booking.tenantName}</span> • Landlord ID: <span className="text-neutral-200 font-semibold font-mono text-[9px]">{booking.landlordId}</span>
+                          </p>
                         </div>
-                        <h4 className="font-bold text-white mt-1 leading-tight line-clamp-1">{booking.propertyTitle}</h4>
-                        <p className="text-[10px] text-white/50 mt-0.5">
-                          Tenant: <span className="text-neutral-200 font-semibold">{booking.tenantName}</span> • Landlord ID: <span className="text-neutral-200 font-semibold font-mono text-[9px]">{booking.landlordId}</span>
-                        </p>
+                      </div>
+  
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full md:w-auto items-end gap-3 pt-2 md:pt-0 border-t md:border-t-0 border-white/5 shrink-0">
+                        <div className="text-right">
+                          <span className="text-[9px] text-white/40 block font-mono">Amount Paid / Escrow</span>
+                          <span className="font-bold text-white font-mono text-sm">KSh {booking.amountPaid.toLocaleString()}</span>
+                          <span className="text-[9px] text-teal-400 block font-medium">Split: Host KSh {booking.payoutAmount.toLocaleString()} / Platform KSh {booking.commissionAmount.toLocaleString()}</span>
+                        </div>
+  
+                        {/* Escrow actions */}
+                        <div className="flex gap-1.5 shrink-0">
+                          {booking.status === 'pending' && (
+                            <button
+                              onClick={() => {
+                                const updated = bookings.map(b => b.id === booking.id ? { ...b, status: 'active' as const } : b);
+                                onUpdateBookings(updated);
+                              }}
+                              className="bg-emerald-650 hover:bg-emerald-600 text-white font-bold text-[10px] font-sans px-2.5 py-1.5 rounded-lg transition uppercase tracking-wider cursor-pointer border border-emerald-500/25"
+                            >
+                              Approve
+                            </button>
+                          )}
+                          {booking.status === 'active' && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  const updated = bookings.map(b => b.id === booking.id ? { ...b, status: 'completed' as const, escrowStatus: 'released' as const } : b);
+                                  onUpdateBookings(updated);
+                                }}
+                                className="bg-blue-600 hover:bg-blue-500 text-white font-bold text-[10px] font-sans px-2 py-1 rounded-lg transition uppercase tracking-wider cursor-pointer"
+                              >
+                                Release
+                              </button>
+                              <button
+                                onClick={() => {
+                                  const updated = bookings.map(b => b.id === booking.id ? { ...b, status: 'cancelled' as const, escrowStatus: 'refunded' as const } : b);
+                                  onUpdateBookings(updated);
+                                }}
+                                className="bg-rose-950 hover:bg-rose-900 border border-rose-800 text-rose-300 font-bold text-[10px] font-sans px-2 py-1 rounded-lg transition uppercase tracking-wider cursor-pointer"
+                              >
+                                Refund
+                              </button>
+                            </>
+                          )}
+                          {booking.status === 'completed' && (
+                            <div className="text-teal-400 text-[10px] font-bold font-mono py-1 px-2 bg-teal-950/40 border border-teal-900/35 rounded-lg shrink-0">
+                              ✔ RELEASED
+                            </div>
+                          )}
+                          {booking.status === 'cancelled' && (
+                            <div className="text-neutral-400 text-[10px] font-bold font-mono py-1 px-2 bg-neutral-900/40 border border-white/5 rounded-lg shrink-0">
+                              ✘ REFUNDED
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full md:w-auto items-end gap-3 pt-2 md:pt-0 border-t md:border-t-0 border-white/5 shrink-0">
-                      <div className="text-right">
-                        <span className="text-[9px] text-white/40 block font-mono">Amount Paid / Escrow</span>
-                        <span className="font-bold text-white font-mono text-sm">KSh {booking.amountPaid.toLocaleString()}</span>
-                        <span className="text-[9px] text-teal-400 block font-medium">Split: Host KSh {booking.payoutAmount.toLocaleString()} / Platform KSh {booking.commissionAmount.toLocaleString()}</span>
+                    {/* Escrow Progress Bar */}
+                    <div className="w-full mt-1 px-2 pb-1">
+                      <div className="flex justify-between text-[9px] font-mono mb-1.5 uppercase font-bold tracking-widest text-white/40">
+                        <span>Escrow Progress</span>
+                        <span className={statusColor.split(' ')[1]}>{progressText}</span>
                       </div>
-
-                      {/* Escrow actions */}
-                      <div className="flex gap-1.5 shrink-0">
-                        {booking.status === 'pending' && (
-                          <button
-                            onClick={() => {
-                              const updated = bookings.map(b => b.id === booking.id ? { ...b, status: 'active' as const } : b);
-                              onUpdateBookings(updated);
-                            }}
-                            className="bg-emerald-650 hover:bg-emerald-600 text-white font-bold text-[10px] font-sans px-2.5 py-1.5 rounded-lg transition uppercase tracking-wider cursor-pointer border border-emerald-500/25"
-                          >
-                            Approve
-                          </button>
-                        )}
-                        {booking.status === 'active' && (
-                          <>
-                            <button
-                              onClick={() => {
-                                const updated = bookings.map(b => b.id === booking.id ? { ...b, status: 'completed' as const, escrowStatus: 'released' as const } : b);
-                                onUpdateBookings(updated);
-                              }}
-                              className="bg-blue-600 hover:bg-blue-500 text-white font-bold text-[10px] font-sans px-2 py-1 rounded-lg transition uppercase tracking-wider cursor-pointer"
-                            >
-                              Release
-                            </button>
-                            <button
-                              onClick={() => {
-                                const updated = bookings.map(b => b.id === booking.id ? { ...b, status: 'cancelled' as const, escrowStatus: 'refunded' as const } : b);
-                                onUpdateBookings(updated);
-                              }}
-                              className="bg-rose-950 hover:bg-rose-900 border border-rose-800 text-rose-300 font-bold text-[10px] font-sans px-2 py-1 rounded-lg transition uppercase tracking-wider cursor-pointer"
-                            >
-                              Refund
-                            </button>
-                          </>
-                        )}
-                        {booking.status === 'completed' && (
-                          <div className="text-teal-400 text-[10px] font-bold font-mono py-1 px-2 bg-teal-950/40 border border-teal-900/35 rounded-lg shrink-0">
-                            ✔ RELEASED
-                          </div>
-                        )}
-                        {booking.status === 'cancelled' && (
-                          <div className="text-neutral-400 text-[10px] font-bold font-mono py-1 px-2 bg-neutral-900/40 border border-white/5 rounded-lg shrink-0">
-                            ✘ REFUNDED
-                          </div>
-                        )}
+                      <div className="h-2 w-full bg-black/40 rounded-full overflow-hidden flex shadow-inner">
+                        <div 
+                          className={`h-full rounded-full transition-all duration-1000 ease-out relative shadow-[0_0_10px_rgba(0,0,0,0.5)] ${progressColor}`}
+                          style={{ width: progressWidth === 'w-1/3' ? '33.33%' : progressWidth === 'w-2/3' ? '66.66%' : '100%' }}
+                        >
+                          {(booking.status === 'pending' || booking.status === 'active') && (
+                            <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>

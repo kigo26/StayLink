@@ -1,0 +1,6 @@
+{
+  "name": "StayLink AI",
+  "description": "Next-Generation Intelligent Real Estate, Roommate & Hospitality Super App for Africa",
+  "requestFramePermissions": ["camera", "geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,212 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@350;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;750&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer utilities {
+  /* Immersive UI Custom Tokens */
+  .glass {
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .blue-glow {
+    box-shadow: 0 0 45px rgba(59, 130, 246, 0.25);
+  }
+  .accent-gradient {
+    background: linear-gradient(135deg, #3b82f6 0%, #2dd4bf 100%);
+  }
+  .radial-bg {
+    background: radial-gradient(circle at 50% 50%, #0f172a 0%, #020617 100%);
+  }
+  
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  /* Hide scrollbar for IE, Edge and Firefox */
+  .no-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+
+  /* IMMERSIVE EMULATOR CYBERGLASS THEME OVERRIDES */
+  #staylink-mobile-emulator .bg-neutral-100,
+  #staylink-mobile-emulator .bg-neutral-50,
+  #staylink-mobile-emulator .bg-slate-50,
+  #staylink-mobile-emulator .bg-white {
+    background-color: rgba(15, 23, 42, 0.5) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    color: #f8fafc !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+  }
+
+  #staylink-mobile-emulator {
+    border-color: rgba(30, 41, 59, 0.9) !important;
+    background: #020617 !important;
+  }
+
+  #staylink-mobile-emulator > div:first-of-type {
+    background-color: #020617 !important;
+  }
+
+  #staylink-mobile-emulator > div:nth-child(2) {
+    background: radial-gradient(circle at 50% 50%, #090f1d 0%, #020617 100%) !important;
+    color: #f1f5f9 !important;
+  }
+
+  #staylink-mobile-emulator .bg-gradient-to-b.from-\[\#e0f2fe\] {
+    background: radial-gradient(circle at 50% 30%, #0f172a 0%, #020617 100%) !important;
+  }
+
+  #staylink-mobile-emulator .text-neutral-900,
+  #staylink-mobile-emulator .text-neutral-800,
+  #staylink-mobile-emulator .text-neutral-700,
+  #staylink-mobile-emulator .text-neutral-600 {
+    color: #f1f5f9 !important;
+  }
+
+  #staylink-mobile-emulator .text-neutral-500,
+  #staylink-mobile-emulator .text-neutral-400 {
+    color: rgba(255, 255, 255, 0.55) !important;
+  }
+
+  #staylink-mobile-emulator .border-neutral-200,
+  #staylink-mobile-emulator .border-neutral-100,
+  #staylink-mobile-emulator .border-purple-100 {
+    border-color: rgba(255, 255, 255, 0.08) !important;
+  }
+
+  /* Buttons & badges glass styling */
+  #staylink-mobile-emulator .bg-white\/70 {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    color: white !important;
+  }
+
+  #staylink-mobile-emulator h1,
+  #staylink-mobile-emulator h2,
+  #staylink-mobile-emulator h3,
+  #staylink-mobile-emulator h4,
+  #staylink-mobile-emulator h5,
+  #staylink-mobile-emulator h6 {
+    color: white !important;
+  }
+
+  #staylink-mobile-emulator .bg-indigo-50 {
+    background-color: rgba(99, 102, 241, 0.15) !important;
+    color: #a5b4fc !important;
+    border: 1px solid rgba(99, 102, 241, 0.25) !important;
+  }
+
+  #staylink-mobile-emulator .bg-\[\#faf5ff\] {
+    background: radial-gradient(circle at 50% 50%, #0c0a1c 0%, #020617 100%) !important;
+    color: white !important;
+  }
+
+  #staylink-mobile-emulator .bg-sky-50 {
+    background: rgba(14, 165, 233, 0.08) !important;
+    border: 1px solid rgba(14, 165, 233, 0.15) !important;
+    color: #38bdf8 !important;
+  }
+
+  #staylink-mobile-emulator .text-sky-700 {
+    color: #38bdf8 !important;
+  }
+
+  #staylink-mobile-emulator .bg-sky-100 {
+    background-color: rgba(14, 165, 233, 0.12) !important;
+    color: #38bdf8 !important;
+  }
+
+  #staylink-mobile-emulator .bg-blue-100 {
+    background-color: rgba(59, 130, 246, 0.12) !important;
+    color: #60a5fa !important;
+  }
+
+  #staylink-mobile-emulator .text-blue-700 {
+    color: #60a5fa !important;
+  }
+
+  #staylink-mobile-emulator .bg-blue-600 {
+    background: linear-gradient(135deg, #3b82f6 0%, #2970df 100%) !important;
+  }
+
+  #staylink-mobile-emulator .bg-[#eff6ff] {
+    background: radial-gradient(circle at 50% 50%, #020617 0%, #020617 100%) !important;
+  }
+
+  /* Receipt screen paper glass look */
+  #staylink-mobile-emulator .bg-white.border-neutral-300 {
+    background: rgba(15, 23, 42, 0.7) !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    color: white !important;
+  }
+
+  #staylink-mobile-emulator .text-sky-800 {
+    color: #0ea5e9 !important;
+  }
+
+  #staylink-mobile-emulator .text-sky-900 {
+    color: #38bdf8 !important;
+  }
+
+  #staylink-mobile-emulator .text-indigo-700 {
+    color: #818cf8 !important;
+  }
+
+  #staylink-mobile-emulator .bg-purple-50 {
+    background-color: rgba(147, 51, 234, 0.08) !important;
+    border-color: rgba(147, 51, 234, 0.2) !important;
+  }
+
+  #staylink-mobile-emulator .text-indigo-400 {
+    color: #a5b4fc !important;
+  }
+
+  #staylink-mobile-emulator .text-sky-300 {
+    color: #7dd3fc !important;
+  }
+
+  #staylink-mobile-emulator .bg-indigo-500\/10 {
+    background-color: rgba(99, 102, 241, 0.1) !important;
+  }
+
+  #staylink-mobile-emulator .text-emerald-600 {
+    color: #34d399 !important;
+  }
+
+  #staylink-mobile-emulator .bg-emerald-100 {
+    background-color: rgba(16, 185, 129, 0.12) !important;
+    color: #34d399 !important;
+  }
+
+  #staylink-mobile-emulator .text-neutral-950 {
+    color: white !important;
+  }
+
+  #staylink-mobile-emulator input,
+  #staylink-mobile-emulator select,
+  #staylink-mobile-emulator textarea {
+    background-color: rgba(255, 255, 255, 0.06) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    color: white !important;
+  }
+
+  #staylink-mobile-emulator input::placeholder {
+    color: rgba(255, 255, 255, 0.35) !important;
+  }
+
+  #staylink-mobile-emulator svg:not(.text-red-500) {
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  #staylink-mobile-emulator .text-blue-600 svg {
+    color: #3b82f6 !important;
+  }
+}

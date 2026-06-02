@@ -1,0 +1,91 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Represents a user account in the system.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The unique user ID matching Firebase Authentication UID." },
+        "name": { "type": "string", "description": "Display name of the user." },
+        "email": { "type": "string", "format": "email", "description": "Verified email address." },
+        "phone": { "type": "string", "description": "Mobile phone number." },
+        "avatar": { "type": "string", "description": "Profile picture URL." },
+        "role": { "type": "string", "enum": ["tenant", "landlord", "admin"], "description": "User role access." },
+        "isVerified": { "type": "boolean", "description": "Whether the user's ID and details are verified." },
+        "walletBalance": { "type": "number", "description": "Current virtual wallet balance in KSh." },
+        "referralCode": { "type": "string", "description": "Unique referral code for sharing." },
+        "referralPoints": { "type": "number", "description": "Loyalty points earned from streaks or friends." }
+      },
+      "required": ["uid", "name", "email", "role", "isVerified"]
+    },
+    "Property": {
+      "title": "Property",
+      "description": "A property listing for rent, stay, sale, or roommate matchmaking.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique property identifier." },
+        "title": { "type": "string", "description": "The listing title." },
+        "description": { "type": "string", "description": "Detailed listing description." },
+        "price": { "type": "number", "description": "Rental price or daily rate in KSh." },
+        "location": { "type": "string", "description": "Geographical area, e.g. Westlands, Kilimani." },
+        "type": { "type": "string", "enum": ["apartment", "airbnb", "roommate", "sale", "hotel"], "description": "Listing classification." },
+        "bedrooms": { "type": "integer", "description": "Number of bedrooms." },
+        "bathrooms": { "type": "integer", "description": "Number of bathrooms." },
+        "landlordId": { "type": "string", "description": "Owner user UID." },
+        "aiQualityScore": { "type": "number", "description": "StayLink AI computed quality score." },
+        "isFlagged": { "type": "boolean", "description": "Indicates high scam probability or spam." },
+        "likesCount": { "type": "number", "description": "Total user likes." }
+      },
+      "required": ["id", "title", "price", "location", "type", "landlordId", "aiQualityScore", "isFlagged"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "Represents a reservation or rental contract.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique booking identifier." },
+        "propertyId": { "type": "string", "description": "Reference to property." },
+        "tenantId": { "type": "string", "description": "Reference to renting user." },
+        "payoutAmount": { "type": "number", "description": "Net payment to landlord (90% check)." },
+        "commissionAmount": { "type": "number", "description": "Platform 10% commission fee." },
+        "amountPaid": { "type": "number", "description": "Gross amount paid by tenant." },
+        "status": { "type": "string", "enum": ["pending", "active", "completed", "cancelled"], "description": "Booking workflow state." },
+        "escrowStatus": { "type": "string", "enum": ["held", "released", "refunded"], "description": "Fintech escrow state." }
+      },
+      "required": ["id", "propertyId", "tenantId", "status", "amountPaid", "escrowStatus"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "A payment audit record from M-Pesa or Flutterwave.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Payment index." },
+        "userId": { "type": "string", "description": "Originating user reference." },
+        "type": { "type": "string", "enum": ["deposit", "booking_payment", "booking_payout", "commission_payout"], "description": "Trx type." },
+        "amount": { "type": "number", "description": "Transaction volume in KSh." },
+        "provider": { "type": "string", "enum": ["mpesa", "flutterwave", "pesapal", "wallet"], "description": "E-money provider used." },
+        "reference": { "type": "string", "description": "Transaction code." },
+        "status": { "type": "string", "enum": ["pending", "success", "failed"], "description": "Transaction status." }
+      },
+      "required": ["id", "userId", "type", "amount", "provider", "reference", "status"]
+    }
+  },
+  "firestore": {
+    "users": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Users of StayLink AI."
+    },
+    "properties": {
+      "schema": { "$ref": "#/entities/Property" },
+      "description": "Property listings in Africa."
+    },
+    "bookings": {
+      "schema": { "$ref": "#/entities/Booking" },
+      "description": "Property escrow bookings."
+    },
+    "transactions": {
+      "schema": { "$ref": "#/entities/Transaction" },
+      "description": "Fintech payments receipts logs."
+    }
+  }
+}

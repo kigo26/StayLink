@@ -1,0 +1,240 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global safety net - Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 3. Primitives & global helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && (request.auth.token.email_verified == true);
+    }
+
+    function isBootstrappedAdmin() {
+      return isSignedIn() && 
+             request.auth.token.email == 'skigo5917@gmail.com' && 
+             request.auth.token.email_verified == true;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Entity validator: UserProfile
+    function isValidUserProfile(data) {
+      return data.uid is string && 
+             data.uid.size() <= 128 &&
+             data.name is string && 
+             data.name.size() > 0 && 
+             data.name.size() <= 100 &&
+             data.email is string && 
+             data.email.size() > 0 && 
+             data.email.size() <= 100 &&
+             data.role is string && 
+             data.role in ['tenant', 'landlord', 'admin'] &&
+             data.isVerified is bool &&
+             data.walletBalance is number;
+    }
+
+    // Entity validator: Property
+    function isValidProperty(data) {
+      return data.id is string && 
+             data.id.size() <= 128 &&
+             data.title is string && 
+             data.title.size() > 0 && 
+             data.title.size() <= 150 &&
+             data.price is number && 
+             data.price >= 0 &&
+             data.location is string && 
+             data.location.size() <= 100 &&
+             data.type is string && 
+             data.type in ['apartment', 'airbnb', 'roommate', 'sale', 'hotel'] &&
+             data.landlordId is string && 
+             data.landlordId.size() <= 128 &&
+             data.aiQualityScore is number && 
+             data.aiQualityScore >= 0 && 
+             data.aiQualityScore <= 100 &&
+             data.isFlagged is bool;
+    }
+
+    // Entity validator: Booking
+    function isValidBooking(data) {
+      return data.id is string && 
+             data.id.size() <= 128 &&
+             data.propertyId is string && 
+             data.propertyId.size() <= 128 &&
+             data.tenantId is string && 
+             data.tenantId.size() <= 128 &&
+             data.amountPaid is number && 
+             data.amountPaid >= 0 &&
+             data.payoutAmount is number && 
+             data.payoutAmount >= 0 &&
+             data.commissionAmount is number && 
+             data.commissionAmount >= 0 &&
+             // Ensure perfect financial math breakdown
+             data.payoutAmount + data.commissionAmount == data.amountPaid &&
+             data.status is string && 
+             data.status in ['pending', 'active', 'completed', 'cancelled'] &&
+             data.escrowStatus is string && 
+             data.escrowStatus in ['held', 'released', 'refunded'];
+    }
+
+    // Entity validator: Transaction
+    function isValidTransaction(data) {
+      return data.id is string && 
+             data.id.size() <= 128 &&
+             data.userId is string && 
+             data.userId.size() <= 128 &&
+             data.amount is number && 
+             data.amount >= 0 &&
+             data.type is string && 
+             data.type in ['deposit', 'booking_payment', 'booking_payout', 'commission_payout', 'referral_bonus'] &&
+             data.provider is string && 
+             data.provider in ['mpesa', 'flutterwave', 'pesapal', 'wallet'] &&
+             data.reference is string && 
+             data.reference.size() <= 200 &&
+             data.status is string && 
+             data.status in ['pending', 'success', 'failed'];
+    }
+
+    // 4. Match Blocks for Collections
+
+    // Users Collection
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isBootstrappedAdmin();
+      
+      allow create: if isVerifiedUser() && 
+                       isValidId(userId) && 
+                       userId == request.auth.uid && 
+                       isValidUserProfile(incoming()) &&
+                       incoming().uid == request.auth.uid &&
+                       incoming().walletBalance == 0 && // Cannot create account with pre-set funds
+                       incoming().role in ['tenant', 'landlord'] && // Cannot self-assign admin role
+                       incoming().isVerified == false; // Cannot self-verify
+
+      allow update: if isVerifiedUser() && 
+                       isValidId(userId) && 
+                       userId == request.auth.uid && 
+                       isValidUserProfile(incoming()) &&
+                       incoming().uid == existing().uid &&
+                       (
+                         isBootstrappedAdmin() || 
+                         (
+                           // Standard users can't self-promote, modify verification or wallet direct balances
+                           !incoming().diff(existing()).affectedKeys().hasAny(['role', 'isVerified', 'walletBalance']) &&
+                           incoming().role == existing().role &&
+                           incoming().isVerified == existing().isVerified &&
+                           incoming().walletBalance == existing().walletBalance
+                         )
+                       );
+
+      allow delete: if isBootstrappedAdmin();
+    }
+
+    // Properties Collection
+    match /properties/{propertyId} {
+      allow read: if isSignedIn() && 
+                    (!resource.data.isFlagged || 
+                     resource.data.landlordId == request.auth.uid || 
+                     isBootstrappedAdmin());
+
+      allow create: if isVerifiedUser() && 
+                       isValidId(propertyId) && 
+                       isValidProperty(incoming()) &&
+                       incoming().landlordId == request.auth.uid &&
+                       incoming().isFlagged == false && // Cannot self-flag or create flagged initially
+                       incoming().aiQualityScore <= 100;
+
+      allow update: if isVerifiedUser() && 
+                       isValidId(propertyId) && 
+                       isValidProperty(incoming()) &&
+                       incoming().id == existing().id &&
+                       incoming().landlordId == existing().landlordId &&
+                       (
+                         isBootstrappedAdmin() || 
+                         (
+                           resource.data.landlordId == request.auth.uid &&
+                           // Landlord cannot self-unflag or modify administrative quality score
+                           !incoming().diff(existing()).affectedKeys().hasAny(['isFlagged', 'aiQualityScore']) &&
+                           incoming().isFlagged == existing().isFlagged &&
+                           incoming().aiQualityScore == existing().aiQualityScore
+                         )
+                       );
+
+      allow delete: if isVerifiedUser() && 
+                       (resource.data.landlordId == request.auth.uid || isBootstrappedAdmin());
+    }
+
+    // Bookings Collection
+    match /bookings/{bookingId} {
+      allow read, get: if isSignedIn() && 
+                          (resource.data.tenantId == request.auth.uid || 
+                           resource.data.landlordId == request.auth.uid || 
+                           isBootstrappedAdmin());
+
+      allow list: if isSignedIn() && isBootstrappedAdmin();
+
+      allow create: if isVerifiedUser() && 
+                       isValidId(bookingId) && 
+                       isValidBooking(incoming()) &&
+                       incoming().tenantId == request.auth.uid &&
+                       incoming().status == 'pending' &&
+                       incoming().escrowStatus == 'held';
+
+      allow update: if isVerifiedUser() && 
+                       isValidId(bookingId) && 
+                       isValidBooking(incoming()) &&
+                       incoming().id == existing().id &&
+                       incoming().tenantId == existing().tenantId &&
+                       incoming().landlordId == existing().landlordId &&
+                       incoming().propertyId == existing().propertyId &&
+                       incoming().amountPaid == existing().amountPaid &&
+                       incoming().payoutAmount == existing().payoutAmount &&
+                       incoming().commissionAmount == existing().commissionAmount &&
+                       (
+                         isBootstrappedAdmin() ||
+                         (
+                           (existing().tenantId == request.auth.uid || existing().landlordId == request.auth.uid) &&
+                           // Terminal State Lock
+                           existing().status != 'completed' && 
+                           existing().status != 'cancelled' &&
+                           existing().escrowStatus != 'released' &&
+                           existing().escrowStatus != 'refunded'
+                         )
+                       );
+
+      allow delete: if isBootstrappedAdmin();
+    }
+
+    // Transactions Collection (Strictly Immutable Ledger)
+    match /transactions/{transactionId} {
+      allow read, get: if isSignedIn() && 
+                          (resource.data.userId == request.auth.uid || isBootstrappedAdmin());
+
+      allow list: if isSignedIn() && isBootstrappedAdmin();
+
+      allow create: if isVerifiedUser() && 
+                       isValidId(transactionId) && 
+                       isValidTransaction(incoming()) &&
+                       incoming().userId == request.auth.uid;
+
+      allow update, delete: if false; // Strict ledger immutability
+    }
+  }
+}

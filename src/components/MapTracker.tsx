@@ -780,13 +780,18 @@ export default function MapTracker({ properties, onViewProperty, onBookProperty,
               />
               <div className="flex-1 flex flex-col justify-between text-left">
                 <div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-[8px] bg-blue-100 text-blue-700 font-black uppercase tracking-wider px-1.5 py-0.5 rounded-sm">
                       {selectedProperty.type}
                     </span>
                     <span className="text-[10px] font-bold font-mono text-neutral-400">
                       Inside Radar Range
                     </span>
+                    {(selectedProperty.verifiedByAdmin || selectedProperty.verificationStatus === 'verified') && (
+                      <span className="inline-flex items-center gap-0.5 bg-emerald-100 text-emerald-800 text-[8px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded-sm border border-emerald-250 shadow-3xs">
+                        <Check className="w-2.5 h-2.5 text-emerald-600 fill-current" /> Verified Host
+                      </span>
+                    )}
                   </div>
                   <h4 className="font-extrabold text-xs text-neutral-900 tracking-tight leading-tight mt-1 line-clamp-1">
                     {selectedProperty.title}
@@ -889,7 +894,12 @@ export default function MapTracker({ properties, onViewProperty, onBookProperty,
                         >
                           <img src={item.property.images[0]} className="w-12 h-12 rounded-lg object-cover bg-neutral-200" />
                           <div className="flex-1 text-left min-w-0">
-                            <div className="text-[11px] font-extrabold text-neutral-800 line-clamp-1">{item.property.title}</div>
+                            <div className="text-[11px] font-extrabold text-neutral-800 line-clamp-1 flex items-center gap-1">
+                              {item.property.title}
+                              {(item.property.verifiedByAdmin || item.property.verificationStatus === 'verified') && (
+                                <Check className="w-3 h-3 text-emerald-500 shrink-0 fill-current" title="Verified Landlord Host" />
+                              )}
+                            </div>
                             <div className="text-[9px] text-neutral-500 font-medium">📍 {item.distance.toFixed(1)} km away • {item.property.type}</div>
                           </div>
                           <div className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">

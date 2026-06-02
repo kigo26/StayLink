@@ -62,7 +62,9 @@ export const INITIAL_PROPERTIES: Property[] = [
     createdAt: '2026-05-15T08:00:00Z',
     likesCount: 145,
     commentsCount: 22,
-    hasVirtualTour: true
+    hasVirtualTour: true,
+    verificationStatus: 'verified',
+    verifiedByAdmin: true
   },
   {
     id: 'prop_westlands_studio',
@@ -100,7 +102,9 @@ export const INITIAL_PROPERTIES: Property[] = [
     createdAt: '2026-05-20T10:30:00Z',
     likesCount: 88,
     commentsCount: 12,
-    hasVirtualTour: false
+    hasVirtualTour: false,
+    verificationStatus: 'verified',
+    verifiedByAdmin: true
   },
   {
     id: 'prop_roommate_westlands',
@@ -138,7 +142,9 @@ export const INITIAL_PROPERTIES: Property[] = [
     createdAt: '2026-05-22T14:00:00Z',
     likesCount: 210,
     commentsCount: 45,
-    hasVirtualTour: true
+    hasVirtualTour: true,
+    verificationStatus: 'verified',
+    verifiedByAdmin: true
   },
   {
     id: 'prop_karen_villa',
@@ -176,7 +182,9 @@ export const INITIAL_PROPERTIES: Property[] = [
     createdAt: '2026-05-18T16:00:00Z',
     likesCount: 312,
     commentsCount: 19,
-    hasVirtualTour: true
+    hasVirtualTour: true,
+    verificationStatus: 'verified',
+    verifiedByAdmin: true
   },
   {
     id: 'prop_mombasa_resort',
@@ -213,7 +221,9 @@ export const INITIAL_PROPERTIES: Property[] = [
     createdAt: '2026-05-19T09:00:00Z',
     likesCount: 190,
     commentsCount: 33,
-    hasVirtualTour: false
+    hasVirtualTour: false,
+    verificationStatus: 'verified',
+    verifiedByAdmin: true
   },
   {
     id: 'prop_fake_scam',
@@ -249,7 +259,9 @@ export const INITIAL_PROPERTIES: Property[] = [
     createdAt: '2026-05-28T02:00:00Z',
     likesCount: 2,
     commentsCount: 41,
-    hasVirtualTour: false
+    hasVirtualTour: false,
+    verificationStatus: 'rejected',
+    verifiedByAdmin: false
   }
 ];
 

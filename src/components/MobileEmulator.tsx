@@ -10,13 +10,16 @@ import {
   ChevronLeft, Play, Pause, Compass, Share2, DollarSign, Wallet, Phone, 
   Video, Check, AlertTriangle, Menu, Send, Mic, BadgePercent, Lock, 
   Award, QrCode, Globe, CheckCircle2, RotateCcw, Flame, Bus, LogOut,
-  Smartphone, ShieldCheck, RefreshCw, Plus, Image as ImageIcon, Camera
+  Smartphone, ShieldCheck, RefreshCw, Plus, Image as ImageIcon, Camera,
+  Mail, Map, List
 } from 'lucide-react';
 import { Property, RoommateProfile, UserProfile, Message, ChatSession, Booking, Transaction, PlatformStats } from '../types';
 import AdminConsole from './AdminConsole';
 import MapTracker from './MapTracker';
 import AddPropertyScreen from './AddPropertyScreen';
 import CohortPreferencesScreen from './CohortPreferencesScreen';
+import ExploreInlineMap from './ExploreInlineMap';
+import PropertyComparer from './PropertyComparer';
 import { ErrorBoundary } from './ErrorBoundary';
 import { useSystemRecovery } from '../hooks/useSystemRecovery';
 import { db, auth } from '../firebase';
@@ -217,6 +220,31 @@ export default function MobileEmulator({
   const [faceScanOrigin, setFaceScanOrigin] = useState<string>('welcome');
   const [userProfile, setUserProfile] = useState<UserProfile>(currentUser);
   const [selectedRoleId, setSelectedRoleId] = useState<string>('tenant');
+
+  // OTP Auth States
+  const [authTab, setAuthTab] = useState<'register' | 'otp_login'>('register');
+  const [loginMethod, setLoginMethod] = useState<'phone' | 'email'>('phone');
+  const [loginInput, setLoginInput] = useState<string>('');
+  const [otpSent, setOtpSent] = useState<boolean>(false);
+  const [otpCode, setOtpCode] = useState<string>('');
+  const [enteredOtp, setEnteredOtp] = useState<string>('');
+  const [otpTimer, setOtpTimer] = useState<number>(0);
+  const [otpTimerActive, setOtpTimerActive] = useState<boolean>(false);
+  const [otpError, setOtpError] = useState<string>('');
+  const [otpNotification, setOtpNotification] = useState<string | null>(null);
+
+  // OTP Countdown Timer Effect
+  useEffect(() => {
+    let interval: any = null;
+    if (otpTimerActive && otpTimer > 0) {
+      interval = setInterval(() => {
+        setOtpTimer((prev) => prev - 1);
+      }, 1000);
+    } else if (otpTimer === 0) {
+      setOtpTimerActive(false);
+    }
+    return () => clearInterval(interval);
+  }, [otpTimer, otpTimerActive]);
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -236,6 +264,41 @@ export default function MobileEmulator({
 
   const [filteredProperties, setFilteredProperties] = useState<Property[]>(getAvailableProps(properties));
   const [selectedType, setSelectedType] = useState<string>('all');
+  const [exploreViewMode, setExploreViewMode] = useState<'grid' | 'map'>('grid');
+
+  // Property Comparison states
+  const [comparedProperties, setComparedProperties] = useState<Property[]>([]);
+  const [isComparisonOpen, setIsComparisonOpen] = useState(false);
+
+  const handleToggleCompare = (property: Property, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setComparedProperties((prev) => {
+      const alreadyAdded = prev.some((p) => p.id === property.id);
+      if (alreadyAdded) {
+        const cleaned = prev.filter((p) => p.id !== property.id);
+        setRefreshNotification(`Removed "${property.title}" from comparison.`);
+        setTimeout(() => setRefreshNotification(null), 3000);
+        return cleaned;
+      }
+      if (prev.length >= 3) {
+        setRefreshNotification('⚠️ Limit reached: You can compare up to 3 properties side-by-side.');
+        setTimeout(() => setRefreshNotification(null), 4500);
+        return prev;
+      }
+      const updated = [...prev, property];
+      setRefreshNotification(`✨ Added "${property.title}" to compare list.`);
+      setTimeout(() => setRefreshNotification(null), 3000);
+      return updated;
+    });
+  };
+
+  const handleRemoveComparedProperty = (id: string) => {
+    setComparedProperties((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  const handleClearAllCompared = () => {
+    setComparedProperties([]);
+  };
 
   // Interactive details state
   const [activeProperty, setActiveProperty] = useState<Property | null>(null);
@@ -364,7 +427,7 @@ export default function MobileEmulator({
 
       // Append new stay at the top (remove duplicative names if any)
       const mergedList = [animatedNewProperty, ...properties];
-      const uniqueListSet = Array.from(new Map(mergedList.map(p => [p.title, p])).values());
+      const uniqueListSet = Array.from(new Map(mergedList.map(p => [p.title, p])).values()) as Property[];
       onStateUpdate({ properties: uniqueListSet });
       setRefreshNotification('💫 Local index re-aligned. Added new Elite Stay in Westlands!');
     } finally {
@@ -762,12 +825,131 @@ export default function MobileEmulator({
     }, 2500);
   };
 
+  const handleSendOtp = () => {
+    if (!loginInput.trim()) {
+      setOtpError(loginMethod === 'phone' ? 'Please enter a valid phone number.' : 'Please enter a valid email address.');
+      return;
+    }
+    
+    // Simple email or phone validations
+    if (loginMethod === 'email') {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(loginInput.trim())) {
+        setOtpError('Invalid email format. E.g. user@example.com');
+        return;
+      }
+    } else {
+      const cleanPhone = loginInput.trim().replace(/[\s+-]+/g, '');
+      if (cleanPhone.length < 8) {
+        setOtpError('Invalid phone number. Matches standard Kenyan formats like 0722987654.');
+        return;
+      }
+    }
+
+    setOtpError('');
+    // Generate code
+    const generatedCode = Math.floor(1000 + Math.random() * 9000).toString();
+    setOtpCode(generatedCode);
+    setEnteredOtp('');
+    setOtpSent(true);
+    setOtpTimer(60);
+    setOtpTimerActive(true);
+
+    // Trigger push notification simulation
+    const notice = loginMethod === 'phone' 
+      ? `💬 StayLink SMShub: Secret OTP authorization code is ${generatedCode}.`
+      : `✉️ StayLink Auth: Private login OTP passcode is ${generatedCode}.`;
+      
+    setOtpNotification(notice);
+  };
+
+  const handleVerifyOtp = () => {
+    if (enteredOtp.trim() !== otpCode) {
+      setOtpError('Invalid OTP code. Please enter the exact 4-digit code.');
+      return;
+    }
+
+    setOtpError('');
+    setOtpSent(false);
+    
+    // Match against preexisting profiles
+    const formattedInput = loginInput.trim().toLowerCase();
+    const matchedRole = REGISTRATION_ROLES.find(role => {
+      if (loginMethod === 'email') {
+        return role.profile.email.toLowerCase() === formattedInput;
+      } else {
+        const cleanInput = formattedInput.replace(/[\s+-]+/g, '');
+        const rolePhoneClean = role.profile.phone.replace(/[\s+-]+/g, '');
+        return rolePhoneClean.endsWith(cleanInput) || cleanInput.endsWith(rolePhoneClean);
+      }
+    });
+
+    if (matchedRole) {
+      setUserProfile(matchedRole.profile);
+      setSelectedRoleId(matchedRole.id);
+      setOtpNotification(`🔓 Credentials Correct: Welcome back, ${matchedRole.profile.name}!`);
+    } else {
+      const isNewEmail = loginMethod === 'email';
+      const newUid = `user_otp_${Math.floor(Math.random() * 90000 + 10000)}`;
+      const newProfile: UserProfile = {
+        uid: newUid,
+        name: isNewEmail ? loginInput.split('@')[0] : `Guest Resident`,
+        email: isNewEmail ? loginInput : 'guest_otp@staylink.co.ke',
+        phone: !isNewEmail ? loginInput : '+254 700 000 000',
+        avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=300&auto=format&fit=crop',
+        role: 'tenant',
+        isVerified: true,
+        verificationBadges: ['id_uploaded', 'phone_verified'],
+        walletBalance: 25000,
+        referralCode: `STAY_${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
+        referralsCount: 0,
+        referralPoints: 0,
+        level: 1,
+        currentStreak: 2,
+        createdAt: new Date().toISOString(),
+        language: 'en'
+      };
+      
+      setUserProfile(newProfile);
+      setSelectedRoleId('tenant');
+      setOtpNotification(`🆕 Secure ID Created: Welcomed as ${newProfile.name}!`);
+    }
+
+    setActiveScreen('explore');
+    
+    setTimeout(() => {
+      setOtpNotification(null);
+    }, 6000);
+  };
+
   return (
     <div id="staylink-mobile-emulator" className="relative w-full h-full bg-neutral-950 overflow-hidden flex flex-col font-sans select-none">
       
       {/* Embedded Phone Screen Content Container */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-neutral-100 text-neutral-900 h-full relative">
+      <div className="flex-1 flex flex-col overflow-hidden bg-neutral-100 text-neutral-900 h-full relative animate-once">
         
+        {/* Sim Push Notification Overlay */}
+        <AnimatePresence>
+          {otpNotification && (
+            <motion.div
+              initial={{ opacity: 0, y: -80, scale: 0.9 }}
+              animate={{ opacity: 1, y: 16, scale: 1 }}
+              exit={{ opacity: 0, y: -80, scale: 0.9 }}
+              transition={{ type: 'spring', stiffness: 350, damping: 25 }}
+              onClick={() => setOtpNotification(null)}
+              className="absolute left-3 right-3 top-0 z-50 bg-neutral-900/95 backdrop-blur-md border border-neutral-800 text-white p-3.5 rounded-2xl flex items-start gap-2.5 shadow-2xl cursor-pointer pointer-events-auto"
+            >
+              <div className="w-8 h-8 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
+                <Shield className="w-4 h-4 text-blue-400" />
+              </div>
+              <div className="min-w-0 flex-1 text-left">
+                <p className="text-[9px] font-black tracking-widest text-[#94a3b8] font-mono uppercase">StayLink AI Multi-Factor Gateway</p>
+                <p className="text-[11px] font-semibold text-neutral-100 mt-0.5 leading-relaxed">{otpNotification}</p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Outer scrollable viewport for screens */}
         <div className={`flex-grow flex-1 overflow-y-auto overflow-x-hidden relative flex flex-col pt-4 pb-6`}>
           <AnimatePresence mode="wait">
@@ -782,95 +964,365 @@ export default function MobileEmulator({
               className="flex-1 flex flex-col items-center justify-between p-5 bg-neutral-950 text-neutral-100"
             >
               {/* Sleek Header Section */}
-              <div className="w-full text-center pt-5 pb-2">
+              <div className="w-full text-center pt-3 pb-2 select-none">
                 <div className="inline-flex p-1.5 bg-blue-500/10 border border-blue-500/20 rounded-full mb-1">
                   <Sparkles className="w-4 h-4 text-blue-400 rotate-12" />
                 </div>
                 <h1 className="text-2xl font-black tracking-tight text-white flex items-center justify-center gap-1">
                   STAYLINK <span className="bg-gradient-to-r from-blue-500 to-sky-400 bg-clip-text text-transparent italic">AI</span>
                 </h1>
-                <p className="text-[10px] font-mono text-neutral-400 mt-0.5 uppercase tracking-widest font-bold">
-                  Register Your Legal Entity
+                <p className="text-[9px] font-mono text-neutral-400 mt-0.5 uppercase tracking-widest font-extrabold">
+                  {authTab === 'register' ? 'Register Legal Entity' : 'Secured OTP Access Node'}
                 </p>
               </div>
 
-              {/* Stacked Vertical Rosters to Login, styled exactly like the screenshot */}
-              <div className="w-full space-y-2.5 max-h-[340px] overflow-y-auto pr-1 my-3 scrollbar-none">
-                {REGISTRATION_ROLES.map((role) => {
-                  const IconComponent = role.icon;
-                  const isSelected = selectedRoleId === role.id;
-                  return (
-                    <button
-                      key={role.id}
-                      onClick={() => {
-                        setSelectedRoleId(role.id);
-                        setUserProfile(role.profile);
-                      }}
-                      className={`w-full p-3 rounded-2xl border transition-all duration-200 flex items-center gap-3 text-left cursor-pointer group relative overflow-hidden ${
-                        isSelected
-                          ? 'bg-neutral-900 border-neutral-700/80 shadow-lg ring-1 ring-neutral-800'
-                          : 'bg-neutral-900/30 border-neutral-900/60 hover:bg-neutral-900/60 hover:border-neutral-800'
-                      }`}
-                    >
-                      {/* Left color bar indicator */}
-                      {isSelected && (
-                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-blue-500 to-sky-400" />
-                      )}
-
-                      {/* Icon container - squircle, light colored background containing key colored outline icon */}
-                      <div className={`w-11 h-11 rounded-1.5xl bg-white flex items-center justify-center shrink-0 shadow-sm transition-transform duration-200 group-hover:scale-102 ${role.bgIcon}`}>
-                        <IconComponent className={`w-5.5 h-5.5 ${role.textIcon}`} />
-                      </div>
-
-                      {/* Text details */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-center gap-1.5">
-                          <p className="text-xs font-black text-neutral-100 group-hover:text-white transition-colors truncate">
-                            {role.title}
-                          </p>
-                          {isSelected && (
-                            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse border border-neutral-950 shrink-0" />
-                          )}
-                        </div>
-                        <p className="text-[9px] font-mono font-bold tracking-wider uppercase text-neutral-400/90 mt-0.5">
-                          <span className={role.textColor}>{role.level}</span>
-                        </p>
-                        <p className="text-[10px] text-neutral-550 group-hover:text-neutral-400 transition-colors font-medium truncate mt-0.5 leading-relaxed font-sans">
-                          {role.description}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
+              {/* AUTH MODES SWITCH */}
+              <div className="w-full grid grid-cols-2 p-1 bg-neutral-900 border border-neutral-850 rounded-xl mb-3 mt-1 shadow-inner relative z-10 shrink-0">
+                <button
+                  onClick={() => {
+                    setAuthTab('register');
+                    setOtpError('');
+                  }}
+                  className={`py-2 text-[10px] font-extrabold uppercase tracking-widest rounded-lg transition-all duration-200 cursor-pointer ${
+                    authTab === 'register'
+                      ? 'bg-gradient-to-r from-blue-600 to-sky-500 text-white shadow-md font-black'
+                      : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  Choose Role
+                </button>
+                <button
+                  onClick={() => {
+                    setAuthTab('otp_login');
+                    setOtpError('');
+                  }}
+                  className={`py-2 text-[10px] font-extrabold uppercase tracking-widest rounded-lg transition-all duration-200 cursor-pointer ${
+                    authTab === 'otp_login'
+                      ? 'bg-gradient-to-r from-blue-600 to-sky-500 text-white shadow-md font-black'
+                      : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  Secured OTP
+                </button>
               </div>
 
-              {/* Selected Profile Summary & Proceed Button */}
-              <div className="w-full flex flex-col gap-2.5 mt-2">
-                <div className="p-3 bg-neutral-900/40 border border-neutral-900 rounded-2xl flex items-center gap-3">
-                  <img src={userProfile.avatar} className="w-8 h-8 rounded-full border border-neutral-700 object-cover shrink-0" />
-                  <div className="flex-1 text-left min-w-0">
-                    <p className="text-[8px] font-extrabold text-neutral-500 uppercase tracking-widest font-mono">Entity Selected</p>
-                    <p className="text-[11px] font-bold text-neutral-200 truncate">{userProfile.name}</p>
-                  </div>
-                  <span className="text-[8.5px] bg-neutral-800 text-neutral-300 font-mono font-black px-2 py-0.5 rounded-md uppercase border border-neutral-700/50 shrink-0">
-                    {userProfile.role}
-                  </span>
-                </div>
+              {authTab === 'register' ? (
+                <>
+                  {/* Stacked Vertical Rosters to Register */}
+                  <div className="w-full space-y-2.5 max-h-[300px] overflow-y-auto pr-1 my-2 scrollbar-none">
+                    {REGISTRATION_ROLES.map((role) => {
+                      const IconComponent = role.icon;
+                      const isSelected = selectedRoleId === role.id;
+                      return (
+                        <button
+                          key={role.id}
+                          onClick={() => {
+                            setSelectedRoleId(role.id);
+                            setUserProfile(role.profile);
+                          }}
+                          className={`w-full p-3 rounded-2xl border transition-all duration-200 flex items-center gap-3 text-left cursor-pointer group relative overflow-hidden ${
+                            isSelected
+                              ? 'bg-neutral-900 border-neutral-700/80 shadow-lg ring-1 ring-neutral-800'
+                              : 'bg-neutral-900/30 border-neutral-900/60 hover:bg-neutral-900/60 hover:border-neutral-800'
+                          }`}
+                        >
+                          {/* Left color bar indicator */}
+                          {isSelected && (
+                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-blue-500 to-sky-400" />
+                          )}
 
-                <button 
-                  onClick={() => {
-                    setFaceScanOrigin('welcome');
-                    setActiveScreen('face_scan');
-                  }}
-                  className="w-full py-4 bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 text-white rounded-2xl font-black text-[11px] uppercase tracking-wider shadow-lg shadow-blue-950/20 active:scale-98 transition flex items-center justify-center gap-2 cursor-pointer border border-blue-500/20"
-                >
-                  <Shield className="w-4 h-4 text-sky-200" />
-                  Proceed to Secure Registration
-                </button>
-                <div className="flex justify-between text-[9px] font-medium text-neutral-500 px-1 mt-0.5">
-                  <span>Language: English</span>
-                  <span>v24.2.0 (Verified Node)</span>
+                          {/* Icon container */}
+                          <div className={`w-11 h-11 rounded-1.5xl bg-white flex items-center justify-center shrink-0 shadow-sm transition-transform duration-200 group-hover:scale-102 ${role.bgIcon}`}>
+                            <IconComponent className={`w-5.5 h-5.5 ${role.textIcon}`} />
+                          </div>
+
+                          {/* Text details */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between items-center gap-1.5">
+                              <p className="text-xs font-black text-neutral-100 group-hover:text-white transition-colors truncate">
+                                {role.title}
+                              </p>
+                              {isSelected && (
+                                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse border border-neutral-950 shrink-0" />
+                              )}
+                            </div>
+                            <p className="text-[9px] font-mono font-bold tracking-wider uppercase text-neutral-400/90 mt-0.5">
+                              <span className={role.textColor}>{role.level}</span>
+                            </p>
+                            <p className="text-[10px] text-neutral-550 group-hover:text-neutral-400 transition-colors font-medium truncate mt-0.5 leading-relaxed font-sans">
+                              {role.description}
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Selected Profile Summary & Proceed Button */}
+                  <div className="w-full flex flex-col gap-2.5 mt-2 shrink-0 text-left">
+                    <div className="p-3 bg-neutral-900/40 border border-neutral-900 rounded-2xl flex items-center gap-3">
+                      <img src={userProfile.avatar} className="w-8 h-8 rounded-full border border-neutral-700 object-cover shrink-0" />
+                      <div className="flex-1 text-left min-w-0">
+                        <p className="text-[8px] font-extrabold text-neutral-500 uppercase tracking-widest font-mono">Entity Selected</p>
+                        <p className="text-[11px] font-bold text-neutral-200 truncate">{userProfile.name}</p>
+                      </div>
+                      <span className="text-[8.5px] bg-neutral-800 text-neutral-300 font-mono font-black px-2 py-0.5 rounded-md uppercase border border-neutral-700/50 shrink-0">
+                        {userProfile.role}
+                      </span>
+                    </div>
+
+                    <button 
+                      onClick={() => {
+                        setFaceScanOrigin('welcome');
+                        setActiveScreen('face_scan');
+                      }}
+                      className="w-full py-4 bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 text-white rounded-2xl font-black text-[11px] uppercase tracking-wider shadow-lg shadow-blue-950/20 active:scale-98 transition flex items-center justify-center gap-2 cursor-pointer border border-blue-500/20 animate-once"
+                    >
+                      <Shield className="w-4 h-4 text-sky-200" />
+                      Proceed to Secure Registration
+                    </button>
+                  </div>
+                </>
+              ) : (
+                /* OTP ACCESS PORTAL SCREEN */
+                <div className="w-full flex-1 flex flex-col justify-between my-2 overflow-y-auto no-scrollbar">
+                  {!otpSent ? (
+                    /* Step 1: Input email or phone */
+                    <div className="space-y-3 flex-1 flex flex-col justify-center animate-once">
+                      <div className="space-y-1 text-center mb-1 select-none">
+                        <h2 className="text-xs font-extrabold text-neutral-100 uppercase tracking-wider">Secure Account Access Gate</h2>
+                        <p className="text-[9px] text-neutral-400">Authenticating via dynamic single-use token keypads</p>
+                      </div>
+
+                      {/* Selector Tabs */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => {
+                            setLoginMethod('phone');
+                            setLoginInput('');
+                            setOtpError('');
+                          }}
+                          className={`p-3 rounded-xl border flex flex-col items-center gap-1 cursor-pointer transition-all duration-200 ${
+                            loginMethod === 'phone'
+                              ? 'bg-blue-600/10 border-blue-500/80 text-white shadow-sm'
+                              : 'bg-neutral-900/40 border-neutral-900 text-neutral-400 hover:border-neutral-800'
+                          }`}
+                        >
+                          <Smartphone className={`w-5 h-5 ${loginMethod === 'phone' ? 'text-blue-400' : 'text-neutral-500'}`} />
+                          <span className="text-[9px] font-black uppercase tracking-wider">Kenyan Phone</span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setLoginMethod('email');
+                            setLoginInput('');
+                            setOtpError('');
+                          }}
+                          className={`p-3 rounded-xl border flex flex-col items-center gap-1 cursor-pointer transition-all duration-200 ${
+                            loginMethod === 'email'
+                              ? 'bg-blue-600/10 border-blue-500/80 text-white shadow-sm'
+                              : 'bg-neutral-900/40 border-neutral-900 text-neutral-400 hover:border-neutral-800'
+                          }`}
+                        >
+                          <Mail className={`w-5 h-5 ${loginMethod === 'email' ? 'text-blue-400' : 'text-neutral-500'}`} />
+                          <span className="text-[9px] font-black uppercase tracking-wider">Email Address</span>
+                        </button>
+                      </div>
+
+                      {/* Input field */}
+                      <div className="space-y-1.5 text-left">
+                        <label className="text-[8.5px] font-extrabold text-neutral-400 uppercase tracking-widest font-mono">
+                          {loginMethod === 'phone' ? 'M-Pesa Mobile Number' : 'Authorized Active Email'}
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={loginMethod === 'email' ? 'email' : 'text'}
+                            value={loginInput}
+                            onChange={(e) => {
+                              setLoginInput(e.target.value);
+                              if (otpError) setOtpError('');
+                            }}
+                            placeholder={
+                              loginMethod === 'phone'
+                                ? 'e.g. +254 722 987 654'
+                                : 'e.g. host@staylink.co.ke'
+                            }
+                            className="w-full py-3 px-4 bg-neutral-900 border border-neutral-850 rounded-xl text-xs text-white placeholder-neutral-550 focus:outline-none focus:border-blue-500 font-medium"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Informational Help Alert */}
+                      <div className="p-3 bg-neutral-900/40 border border-neutral-900 rounded-xl text-left">
+                        <p className="text-[10px] text-neutral-300 leading-normal flex items-start gap-1.5 font-medium">
+                          <span className="text-blue-400 shrink-0 font-bold">💡</span> 
+                          <span>
+                            Tip: Matches like <strong className="text-blue-400">host@staylink.co.ke</strong> or <strong className="text-blue-400">+254 722 987 654</strong> load complete systems. Transient sessions register other inputs instantly.
+                          </span>
+                        </p>
+                      </div>
+
+                      {/* Error State */}
+                      {otpError && (
+                        <div className="text-[10px] text-rose-500 font-bold bg-rose-500/10 border border-rose-500/20 p-2.5 rounded-lg flex items-center gap-1.5 text-left leading-normal">
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                          <span>{otpError}</span>
+                        </div>
+                      )}
+
+                      {/* Submit */}
+                      <button
+                        onClick={handleSendOtp}
+                        className="w-full py-4 bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 text-white rounded-2xl font-black text-[11px] uppercase tracking-wider shadow-lg active:scale-98 transition flex items-center justify-center gap-2 cursor-pointer border border-blue-500/20"
+                      >
+                        <Send className="w-4 h-4 text-sky-200" />
+                        Send OTP Secure Code
+                      </button>
+                    </div>
+                  ) : (
+                    /* Step 2: Code Verification */
+                    <div className="space-y-3.5 flex-1 flex flex-col justify-center animate-once">
+                      <div className="space-y-1.5 text-center mb-1">
+                        <h2 className="text-xs font-black text-neutral-100 uppercase tracking-widest flex items-center justify-center gap-1.5">
+                          <Lock className="w-3.5 h-3.5 text-emerald-400" /> Enter Escrow OTP Key
+                        </h2>
+                        <p className="text-[9px] text-neutral-400 leading-tight">
+                          Verification passcode routed to
+                        </p>
+                        <span className="inline-block px-2.5 py-0.5 bg-neutral-900 text-neutral-300 rounded-full font-mono text-[9.5px] font-extrabold border border-neutral-800">
+                          {loginInput}
+                        </span>
+                      </div>
+
+                      {/* Code inputs */}
+                      <div className="flex flex-col items-center gap-2 text-left">
+                        <div className="flex justify-center gap-2">
+                          {[0, 1, 2, 3].map((numIndex) => {
+                            const char = enteredOtp[numIndex] || '';
+                            return (
+                              <div
+                                key={numIndex}
+                                className={`w-11 h-11 rounded-xl border flex items-center justify-center font-mono text-sm font-black transition-all ${
+                                  char
+                                    ? 'bg-neutral-900 border-blue-500 text-white text-base scale-102 ring-1 ring-blue-500/30'
+                                    : 'bg-neutral-900/60 border-neutral-850 text-neutral-500'
+                                }`}
+                              >
+                                {char ? '•' : ''}
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* Numeric Keyboard overlay */}
+                        <div className="grid grid-cols-3 gap-1 w-full max-w-[200px] mt-1.5">
+                          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((val) => (
+                            <button
+                              key={val}
+                              onClick={() => {
+                                if (enteredOtp.length < 4) {
+                                  setEnteredOtp((prev) => prev + val);
+                                  if (otpError) setOtpError('');
+                                }
+                              }}
+                              className="py-2 bg-neutral-900 hover:bg-neutral-850 active:bg-neutral-800 text-white rounded-lg text-xs font-bold cursor-pointer transition-colors"
+                            >
+                              {val}
+                            </button>
+                          ))}
+                          <button
+                            onClick={() => {
+                              setEnteredOtp('');
+                              if (otpError) setOtpError('');
+                            }}
+                            className="py-2 bg-neutral-950/20 text-neutral-500 hover:text-white rounded-lg text-[8px] uppercase font-bold cursor-pointer"
+                          >
+                            Clear
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (enteredOtp.length < 4) {
+                                setEnteredOtp((prev) => prev + '0');
+                                if (otpError) setOtpError('');
+                              }
+                            }}
+                            className="py-2 bg-neutral-900 hover:bg-neutral-850 active:bg-neutral-800 text-white rounded-lg text-xs font-bold cursor-pointer transition-colors"
+                          >
+                            0
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (enteredOtp.length > 0) {
+                                setEnteredOtp((prev) => prev.slice(0, -1));
+                                if (otpError) setOtpError('');
+                              }
+                            }}
+                            className="py-2 bg-neutral-950/20 text-neutral-500 hover:text-white rounded-lg text-[8px] uppercase font-bold cursor-pointer"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Display OTP on Dev/Sim (Helper) */}
+                      <div className="py-1 px-3 bg-blue-500/10 border border-blue-500/20 rounded-md text-center max-w-xs mx-auto animate-pulse flex items-center justify-center gap-1 select-none">
+                        <span className="text-[9px] font-extrabold text-blue-400 font-mono tracking-wide">
+                          Simulated code: {otpCode}
+                        </span>
+                      </div>
+
+                      {/* Error or Timer section */}
+                      {otpError ? (
+                        <div className="text-[10px] text-rose-500 font-bold bg-rose-500/10 border border-rose-500/20 p-2 rounded-lg flex items-center gap-1.5 text-left leading-tight">
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                          <span>{otpError}</span>
+                        </div>
+                      ) : (
+                        <div className="text-center select-none">
+                          {otpTimer > 0 ? (
+                            <span className="text-[9.5px] text-neutral-500 font-mono">
+                              Resend code in: <strong className="text-neutral-300 font-bold">{otpTimer}s</strong>
+                            </span>
+                          ) : (
+                            <button
+                              onClick={handleSendOtp}
+                              className="text-[9.5px] text-blue-400 hover:text-blue-300 font-bold underline uppercase tracking-wider cursor-pointer"
+                            >
+                              Resend Verification Code
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* CTA Buttons */}
+                      <div className="space-y-1.5 pt-1 text-left">
+                        <button
+                          onClick={handleVerifyOtp}
+                          className="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-2xl font-black text-[11px] uppercase tracking-wider shadow-lg active:scale-98 transition flex items-center justify-center gap-2 cursor-pointer border border-emerald-500/20"
+                        >
+                          <ShieldCheck className="w-4 h-4 text-teal-200" />
+                          Verify & Log In
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setOtpSent(false);
+                            setEnteredOtp('');
+                            setOtpError('');
+                          }}
+                          className="w-full py-2 bg-transparent hover:bg-neutral-900/40 text-neutral-400 hover:text-neutral-300 rounded-xl text-[9px] uppercase tracking-wider transition cursor-pointer font-bold text-center"
+                        >
+                          ← Change Credentials
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
+              )}
+
+              <div className="flex justify-between text-[9px] font-medium text-neutral-500 px-1 mt-1.5 w-full border-t border-neutral-900/50 pt-2 select-none shrink-0">
+                <span>Language: English</span>
+                <span>v24.2.0 (Verified Node)</span>
               </div>
             </motion.div>
           )}
@@ -1148,12 +1600,41 @@ export default function MobileEmulator({
                     <h4 className="text-sm font-bold text-neutral-900 uppercase tracking-tight">Verified Listings</h4>
                     <span className="text-[10px] text-neutral-400 font-medium">({filteredProperties.length} active listings)</span>
                   </div>
-                  <button
-                    onClick={() => setActiveScreen('map_tracker')}
-                    className="flex items-center gap-1.5 px-3 py-1.8 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-[10px] rounded-xl transition uppercase tracking-wider cursor-pointer shadow-xs border-none"
-                  >
-                    <Globe className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '8s' }} /> GPS Mapping
-                  </button>
+                  
+                  {/* Segmented View Mode Toggle */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex bg-neutral-200/90 p-0.5 rounded-xl border border-neutral-300/60 shadow-inner shrink-0 leading-none">
+                      <button
+                        onClick={() => setExploreViewMode('grid')}
+                        className={`p-1.5 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+                          exploreViewMode === 'grid'
+                            ? 'bg-white text-blue-600 shadow-sm scale-102 font-bold'
+                            : 'text-neutral-500 hover:text-neutral-800'
+                        }`}
+                        title="Grid List View"
+                      >
+                        <List className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setExploreViewMode('map')}
+                        className={`p-1.5 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+                          exploreViewMode === 'map'
+                            ? 'bg-white text-blue-600 shadow-sm scale-102 font-bold'
+                            : 'text-neutral-500 hover:text-neutral-800'
+                        }`}
+                        title="Geographical Map View"
+                      >
+                        <Map className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={() => setActiveScreen('map_tracker')}
+                      className="flex items-center gap-1.5 px-3 py-1.8 bg-blue-650 hover:bg-blue-750 text-white font-extrabold text-[10px] rounded-xl transition uppercase tracking-wider cursor-pointer shadow-xs border-none"
+                    >
+                      <Globe className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '8s' }} /> GPS Mapping
+                    </button>
+                  </div>
                 </div>
 
                 {filteredProperties.length === 0 ? (
@@ -1190,6 +1671,20 @@ export default function MobileEmulator({
                         </div>
                         <p className="text-[11px] text-sky-600/80 font-medium">Re-establishing secure property stream (Attempt {retryCount}/{maxRetries})</p>
                       </div>
+                    ) : exploreViewMode === 'map' ? (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.98 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.98 }}
+                        transition={{ duration: 0.25 }}
+                        className="w-full pb-2"
+                      >
+                        <ExploreInlineMap 
+                          properties={filteredProperties} 
+                          onViewProperty={viewPropertyDetails} 
+                          selectedType={selectedType}
+                        />
+                      </motion.div>
                     ) : (
                       <motion.div
                         initial="hidden"
@@ -1219,10 +1714,12 @@ export default function MobileEmulator({
                           src={prop.images[0]} 
                           className="w-full h-full object-cover group-hover:scale-105 transition duration-500" 
                         />
-                        <div className="absolute top-3 left-3 px-2.5 py-1 bg-black/70 backdrop-blur-xs text-white rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
-                          <Check className="w-3.5 h-3.5 text-emerald-400 fill-current" />
-                          Verified
-                        </div>
+                        {(prop.verifiedByAdmin || prop.verificationStatus === 'verified') && (
+                          <div className="absolute top-3 left-3 px-2.5 py-1 bg-emerald-600/95 backdrop-blur-xs text-white rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 border border-emerald-500/20 shadow-xs">
+                            <Check className="w-3.5 h-3.5 text-white fill-current" />
+                            Verified Host
+                          </div>
+                        )}
                         {prop.isPromoted && (
                           <div className="absolute top-3 right-3 px-2.5 py-1 bg-amber-500 text-white rounded-full text-[9px] font-bold uppercase tracking-wide flex items-center gap-0.5 shadow-sm">
                             <Sparkles className="w-3 h-3 fill-current" />
@@ -1233,6 +1730,22 @@ export default function MobileEmulator({
                           KSh {prop.price >= 1000000 ? `${(prop.price/1000000).toFixed(1)}M` : prop.price.toLocaleString()}
                           <span className="text-[9px] text-neutral-500 font-normal ml-0.5">/{prop.type === 'airbnb' || prop.type === 'hotel' ? 'day' : 'month'}</span>
                         </div>
+
+                        {/* Compare toggle trigger */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleCompare(prop, e);
+                          }}
+                          className={`absolute bottom-3 right-3 px-2.5 py-1.5 rounded-xl text-[9px] font-extrabold uppercase tracking-wider shadow-xs flex items-center gap-1 transition-all border ${
+                            comparedProperties.some(p => p.id === prop.id)
+                              ? 'bg-blue-600 border-blue-600 text-white shadow-md ring-2 ring-blue-500/10'
+                              : 'bg-white/95 border-neutral-200 text-neutral-700 hover:bg-white hover:text-neutral-900'
+                          }`}
+                        >
+                          <Compass className={`w-3 h-3 ${comparedProperties.some(p => p.id === prop.id) ? 'animate-spin' : ''}`} style={{ animationDuration: '6s' }} />
+                          {comparedProperties.some(p => p.id === prop.id) ? 'Compared' : 'Compare'}
+                        </button>
                       </div>
 
                       {/* Content details */}
@@ -1262,7 +1775,7 @@ export default function MobileEmulator({
                     </motion.div>
                   ))}
                   </motion.div>
-                  )}
+                )}
                   </>
                 )}
 
@@ -1306,6 +1819,86 @@ export default function MobileEmulator({
                   <Plus className="w-6 h-6" />
                 </button>
               )}
+
+              {/* FLOATING PROPERTY COMPARISON ACTION BAR */}
+              <AnimatePresence>
+                {comparedProperties.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 50 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 50 }}
+                    className="bg-neutral-900 border-t border-neutral-800 p-3 flex items-center justify-between z-50 shadow-2xl relative shrink-0 text-white select-none"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex -space-x-2 bg-neutral-950 p-1 rounded-xl overflow-hidden shrink-0">
+                        {comparedProperties.map((p) => (
+                          <div key={p.id} className="relative z-10 hover:z-20 group">
+                            <img
+                              src={p.images[0]}
+                              className="w-10 h-10 rounded-xl border-2 border-neutral-900 object-cover shadow-md transition group-hover:scale-105"
+                            />
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveComparedProperty(p.id);
+                              }}
+                              className="absolute -top-1 -right-1 bg-black/80 hover:bg-rose-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px] border border-neutral-800 font-black transition cursor-pointer"
+                              title="Remove"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                        {Array.from({ length: 3 - comparedProperties.length }).map((_, idx) => (
+                          <div
+                            key={idx}
+                            className="w-10 h-10 rounded-xl bg-neutral-800/80 border border-neutral-700/50 flex items-center justify-center text-neutral-500 text-xs font-mono font-bold shrink-0 border-dashed"
+                          >
+                            +
+                          </div>
+                        ))}
+                      </div>
+                      <div className="text-left min-w-0">
+                        <p className="text-[10px] font-black tracking-widest text-neutral-400 uppercase font-mono leading-none">StayLink Comparer</p>
+                        <p className="text-[11px] font-extrabold text-neutral-200 mt-1 truncate">
+                          {comparedProperties.length}/3 selected to compare
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => setIsComparisonOpen(true)}
+                        disabled={comparedProperties.length < 2}
+                        className={`py-2 px-3.5 rounded-xl font-black text-[10px] uppercase tracking-wider shadow-lg transition duration-200 flex items-center gap-1.5 cursor-pointer ${
+                          comparedProperties.length >= 2
+                            ? 'bg-blue-600 hover:bg-blue-700 text-white active:scale-95 border-none'
+                            : 'bg-neutral-800 text-neutral-500 border-none cursor-not-allowed opacity-60'
+                        }`}
+                      >
+                        <Compass className="w-3.5 h-3.5" />
+                        Compare Now
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Comparison Overlay Fullscreen */}
+              <AnimatePresence>
+                {isComparisonOpen && (
+                  <PropertyComparer
+                    selectedProperties={comparedProperties}
+                    onRemoveProperty={handleRemoveComparedProperty}
+                    onClearAll={handleClearAllCompared}
+                    onClose={() => setIsComparisonOpen(false)}
+                    onViewDetails={(prop) => {
+                      setIsComparisonOpen(false);
+                      viewPropertyDetails(prop);
+                    }}
+                  />
+                )}
+              </AnimatePresence>
 
               {/* FLOATING ACTION PREVIEW BAR */}
               <div className="h-16 bg-white border-t border-neutral-200 px-6 flex justify-between items-center z-40 sticky bottom-0 left-0 w-full shadow-md">
@@ -1493,10 +2086,21 @@ export default function MobileEmulator({
 
                   {/* Sidebar quick control overlays */}
                   <div className="absolute right-4 bottom-32 flex flex-col gap-5 z-40 items-center">
-                    {/* Landlord profile overlay */}
+                     {/* Landlord profile overlay */}
                     <div className="flex flex-col items-center">
-                      <div className="w-12 h-12 rounded-full border-2 border-blue-500 overflow-hidden shadow-md">
-                        <img src={properties[tiktokIndex]?.landlordAvatar} className="w-full h-full object-cover" />
+                      <div className="relative">
+                        <div className={`w-12 h-12 rounded-full border-2 overflow-hidden shadow-md ${
+                          (properties[tiktokIndex]?.verifiedByAdmin || properties[tiktokIndex]?.verificationStatus === 'verified') 
+                            ? 'border-emerald-500 bg-emerald-50' 
+                            : 'border-blue-500'
+                        }`}>
+                          <img src={properties[tiktokIndex]?.landlordAvatar} className="w-full h-full object-cover" />
+                        </div>
+                        {(properties[tiktokIndex]?.verifiedByAdmin || properties[tiktokIndex]?.verificationStatus === 'verified') && (
+                          <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white p-0.5 rounded-full border border-white shadow-xs" title="Verified Landlord Host">
+                            <Check className="w-2.5 h-2.5 fill-current font-black" />
+                          </div>
+                        )}
                       </div>
                       <span className="text-[9px] text-white/80 font-bold mt-1 max-w-[50px] truncate">{properties[tiktokIndex]?.landlordName}</span>
                     </div>
@@ -1785,6 +2389,21 @@ export default function MobileEmulator({
                 </button>
               </div>
 
+              {/* Toggle Compare in Property Details */}
+              <div className="absolute top-4 right-4 z-50">
+                <button 
+                  onClick={(e) => handleToggleCompare(activeProperty, e)}
+                  className={`p-2.5 rounded-full border shadow-md transition flex items-center justify-center cursor-pointer ${
+                    comparedProperties.some(p => p.id === activeProperty.id)
+                      ? 'bg-blue-600 border-blue-550 text-white ring-2 ring-blue-500/10'
+                      : 'bg-black/60 border-white/11 text-white hover:bg-black/80'
+                  }`}
+                  title={comparedProperties.some(p => p.id === activeProperty.id) ? 'Remove from Comparison' : 'Add to Comparison'}
+                >
+                  <Compass className={`w-5 h-5 ${comparedProperties.some(p => p.id === activeProperty.id) ? 'animate-spin' : ''}`} style={{ animationDuration: '6s' }} />
+                </button>
+              </div>
+
               {/* Main Images Scroller */}
               <div className="relative h-64 w-full bg-neutral-200 overflow-hidden shadow-xs">
                 <img src={activeProperty.images[0]} className="w-full h-full object-cover" />
@@ -1808,9 +2427,16 @@ export default function MobileEmulator({
 
                 {/* Listing description */}
                 <div>
-                  <span className="text-[10px] font-extrabold uppercase bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded-sm self-start tracking-wider">
-                    {activeProperty.type}
-                  </span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] font-extrabold uppercase bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded-sm self-start tracking-wider">
+                      {activeProperty.type}
+                    </span>
+                    {(activeProperty.verifiedByAdmin || activeProperty.verificationStatus === 'verified') && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase bg-emerald-100 text-emerald-800 border border-emerald-250 px-2.5 py-0.5 rounded-sm self-start tracking-wider shadow-3xs">
+                        <Check className="w-3 h-3 text-emerald-600 fill-current" /> Verified Landlord Host
+                      </span>
+                    )}
+                  </div>
                   <h2 className="text-xl font-bold tracking-tight text-neutral-950 mt-1">{activeProperty.title}</h2>
                   
                   <div className="flex gap-1 items-center text-xs text-neutral-500 mt-1">
@@ -1990,13 +2616,31 @@ export default function MobileEmulator({
                   </div>
                 </div>
 
-                {/* Host profile details */}
+                 {/* Host profile details */}
                 <div className="p-4 bg-neutral-50 rounded-3xl border border-neutral-100 flex items-center justify-between shadow-2xs">
                   <div className="flex items-center gap-3">
-                    <img src={activeProperty.landlordAvatar} className="w-12 h-12 rounded-full object-cover border border-neutral-200 shadow-xs" />
+                    <div className="relative">
+                      <img src={activeProperty.landlordAvatar} className={`w-12 h-12 rounded-full object-cover border shadow-xs ${
+                        (activeProperty.verifiedByAdmin || activeProperty.verificationStatus === 'verified')
+                          ? 'border-emerald-400'
+                          : 'border-neutral-200'
+                      }`} />
+                      {(activeProperty.verifiedByAdmin || activeProperty.verificationStatus === 'verified') && (
+                        <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white p-0.5 rounded-full border border-white">
+                          <Check className="w-2.5 h-2.5 fill-current" />
+                        </div>
+                      )}
+                    </div>
                     <div className="text-left">
                       <span className="text-[9px] text-neutral-400 block uppercase font-bold">Landlord</span>
-                      <p className="text-xs font-bold text-neutral-900">{activeProperty.landlordName}</p>
+                      <p className="text-xs font-bold text-neutral-900 flex items-center gap-1.5 flex-wrap">
+                        {activeProperty.landlordName}
+                        {(activeProperty.verifiedByAdmin || activeProperty.verificationStatus === 'verified') && (
+                          <span className="inline-flex items-center gap-0.5 bg-emerald-100 text-emerald-800 text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-emerald-200 shadow-3xs">
+                            <Check className="w-2.5 h-2.5 fill-current" /> Verified Host
+                          </span>
+                        )}
+                      </p>
                       <span className="text-[10px] text-neutral-400 font-medium">Replies within {activeProperty.responseSpeedMinutes} mins</span>
                     </div>
                   </div>
@@ -2527,6 +3171,8 @@ export default function MobileEmulator({
                   onToggleVerification={() => {}}
                   bookings={bookings}
                   onUpdateBookings={onUpdateBookings}
+                  roommates={roommates}
+                  onStateUpdate={onStateUpdate}
                 />
               </div>
               <div className="h-16 bg-white border-t border-neutral-200 px-6 flex justify-between items-center z-40 relative shadow-md">

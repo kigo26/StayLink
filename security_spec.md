@@ -1,4 +1,4 @@
-# StayLink AI Security Specifications & Threat Model (TDD)
+# StayLink Security Specifications & Threat Model (TDD)
 
 ## 1. Core Data Invariants
 1. **User Profiles (`/users/{userId}`)**:

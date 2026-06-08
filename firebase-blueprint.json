@@ -34,7 +34,9 @@
         "landlordId": { "type": "string", "description": "Owner user UID." },
         "aiQualityScore": { "type": "number", "description": "StayLink AI computed quality score." },
         "isFlagged": { "type": "boolean", "description": "Indicates high scam probability or spam." },
-        "likesCount": { "type": "number", "description": "Total user likes." }
+        "likesCount": { "type": "number", "description": "Total user likes." },
+        "averageRating": { "type": "number", "description": "Average star rating." },
+        "reviewsCount": { "type": "number", "description": "Total number of reviews." }
       },
       "required": ["id", "title", "price", "location", "type", "landlordId", "aiQualityScore", "isFlagged"]
     },
@@ -68,6 +70,21 @@
         "status": { "type": "string", "enum": ["pending", "success", "failed"], "description": "Transaction status." }
       },
       "required": ["id", "userId", "type", "amount", "provider", "reference", "status"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "Tenant feedback on properties.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Review identifier." },
+        "propertyId": { "type": "string", "description": "Property reference." },
+        "tenantId": { "type": "string", "description": "Tenant user reference." },
+        "tenantName": { "type": "string", "description": "Tenant name." },
+        "rating": { "type": "number", "description": "Star rating (1-5)." },
+        "comment": { "type": "string", "description": "Review text." },
+        "timestamp": { "type": "string", "description": "Review creation time." }
+      },
+      "required": ["id", "propertyId", "tenantId", "rating", "timestamp"]
     }
   },
   "firestore": {
@@ -78,6 +95,10 @@
     "properties": {
       "schema": { "$ref": "#/entities/Property" },
       "description": "Property listings in Africa."
+    },
+    "properties/{propertyId}/reviews": {
+      "schema": { "$ref": "#/entities/Review" },
+      "description": "Tenant reviews for properties."
     },
     "bookings": {
       "schema": { "$ref": "#/entities/Booking" },

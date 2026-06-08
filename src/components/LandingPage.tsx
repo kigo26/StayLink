@@ -73,7 +73,10 @@ export default function LandingPage({
   const [verificationCode, setVerificationCode] = useState('');
   const [expectedCode, setExpectedCode] = useState('');
 
+  const [authError, setAuthError] = useState<string | null>(null);
+
   const handleGoogleAuth = async () => {
+    setAuthError(null);
     try {
       const { signInWithPopup, GoogleAuthProvider } = await import('firebase/auth');
       const { auth, googleProvider } = await import('../firebase');
@@ -81,15 +84,22 @@ export default function LandingPage({
       const result = await signInWithPopup(auth, googleProvider);
       setShowAuthModal(false);
       onComplete(selectedRole || 'tenant');
-    } catch (err) {
+    } catch (err: any) {
       console.error("Auth error:", err);
       // Fallback for AI Studio preview if auth popup blocked
-      onComplete(selectedRole || 'tenant');
+      setAuthError(err.message || "Failed to sign in. Popups might be blocked in this environment.");
     }
   };
 
   return (
     <div className="min-h-screen bg-[#030712] text-slate-300 font-sans flex flex-col relative w-full overflow-y-auto">
+      {/* Background Image */}
+      <div 
+        className="absolute inset-0 bg-cover bg-center z-0 opacity-30 blur-sm" 
+        style={{ backgroundImage: `url('https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1600&q=80')` }}
+      ></div>
+      <div className="absolute inset-0 z-0 bg-[#030712]/70"></div>
+      
       <header className="w-full max-w-7xl mx-auto px-4 pt-4 pb-2 z-50">
         <div className="bg-[#050914] border border-blue-900/30 rounded-[28px] overflow-hidden shadow-2xl relative">
           {/* Main Header Content */}
@@ -261,7 +271,7 @@ export default function LandingPage({
               </p>
             </div>
 
-            <button
+             <button
                onClick={handleGoogleAuth}
                className="w-full py-3 bg-white text-black hover:bg-slate-100 rounded-xl text-sm font-bold shadow-lg transition flex items-center justify-center gap-3 cursor-pointer"
              >
@@ -273,6 +283,23 @@ export default function LandingPage({
                </svg>
                Continue with Google
              </button>
+
+             {authError && (
+               <motion.div 
+                 initial={{ opacity: 0, y: 10 }}
+                 animate={{ opacity: 1, y: 0 }}
+                 className="mt-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs text-center flex flex-col gap-2"
+               >
+                 <span><ShieldCheck className="w-4 h-4 inline mr-1 opacity-70"/>{authError}</span>
+                 <p className="text-[10px] text-slate-400">Previews might block popups. You can continue securely in emulator mode.</p>
+                 <button
+                   onClick={() => onComplete(selectedRole || 'tenant')}
+                   className="mt-1 py-1.5 px-3 bg-red-500/20 hover:bg-red-500/30 text-white rounded-lg text-[10px] font-bold transition flex items-center justify-center gap-2 uppercase tracking-wide cursor-pointer"
+                 >
+                   Continue in Emulator <ArrowRight className="w-3 h-3" />
+                 </button>
+               </motion.div>
+             )}
 
              <div className="mt-6 pt-6 border-t border-white/5 flex flex-col gap-2 text-center">
                 <p className="text-[10px] text-slate-500">

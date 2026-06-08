@@ -112,6 +112,22 @@ service cloud.firestore {
              data.status in ['pending', 'success', 'failed'];
     }
 
+    // Entity validator: Review
+    function isValidReview(data) {
+      return data.id is string && 
+             data.id.size() <= 128 &&
+             data.propertyId is string && 
+             data.propertyId.size() <= 128 &&
+             data.tenantId is string && 
+             data.tenantId.size() <= 128 &&
+             data.rating is number && 
+             data.rating >= 1 && 
+             data.rating <= 5 &&
+             data.comment is string && 
+             data.comment.size() <= 500 &&
+             data.timestamp is string;
+    }
+
     // 4. Match Blocks for Collections
 
     // Users Collection
@@ -235,6 +251,17 @@ service cloud.firestore {
                        incoming().userId == request.auth.uid;
 
       allow update, delete: if false; // Strict ledger immutability
+    }
+
+    // Reviews Collection
+    match /properties/{propertyId}/reviews/{reviewId} {
+      allow read: if isSignedIn();
+      allow create: if isVerifiedUser() &&
+                       isValidId(reviewId) &&
+                       isValidReview(incoming()) &&
+                       incoming().propertyId == propertyId &&
+                       incoming().tenantId == request.auth.uid;
+      allow update, delete: if isBootstrappedAdmin();
     }
   }
 }

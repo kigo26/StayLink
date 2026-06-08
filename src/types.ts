@@ -66,6 +66,8 @@ export interface Property {
   createdAt: string;
   likesCount: number;
   commentsCount: number;
+  averageRating?: number;
+  reviewsCount?: number;
   hasVirtualTour?: boolean;
   verificationStatus?: 'pending' | 'verified' | 'rejected';
   verifiedByAdmin?: boolean;
@@ -131,6 +133,17 @@ export interface Comment {
   userName: string;
   userAvatar: string;
   text: string;
+  timestamp: string;
+}
+
+export interface Review {
+  id: string;
+  propertyId: string;
+  tenantId: string;
+  tenantName: string;
+  tenantAvatar: string;
+  rating: number; // 1-5
+  comment: string;
   timestamp: string;
 }
 

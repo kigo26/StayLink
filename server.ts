@@ -8,6 +8,10 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import dotenv from 'dotenv';
+import multer from 'multer';
+import * as XLSX from 'xlsx';
+const pdfParse = require('pdf-parse');
+import mammoth from 'mammoth';
 
 dotenv.config();
 
@@ -422,10 +426,72 @@ app.post('/api/fraud-detect', async (req: Request, res: Response) => {
   }
 });
 
+// 7. PROPERTY UPLOAD AND PARSING
+const upload = multer({ storage: multer.memoryStorage() });
+app.post('/api/upload-property', upload.single('file'), async (req: Request, res: Response) => {
+  const file = (req as any).file;
+  if (!file) return res.status(400).json({ error: 'No file uploaded' });
+  try {
+    let text = '';
+    const ext = path.extname(file.originalname).toLowerCase();
+    
+    if (ext === '.pdf') {
+      const pdf = await pdfParse(file.buffer);
+      text = pdf.text;
+    } else if (ext === '.docx') {
+      const result = await mammoth.extractRawText({ buffer: file.buffer });
+      text = result.value;
+    } else if (ext === '.xlsx' || ext === '.csv') {
+      const workbook = XLSX.read(file.buffer, { type: 'buffer' });
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      text = XLSX.utils.sheet_to_csv(worksheet);
+    } else {
+      return res.status(400).json({ error: 'Unsupported file format' });
+    }
+    
+    const ai = getGeminiClient();
+    if (!ai) {
+        return res.json({ success: false, error: 'AI processing not available.' });
+    }
 
-// ==========================================
-// STATIC ASSET AND SERVER LIFECYCLE
-// ==========================================
+    const prompt = `
+        Parse this property list text into a JSON array of property objects.
+        Fields: title, price (number), type ('apartment'|'airbnb'|'roommate'|'sale'|'hotel'), location, bedrooms (number), bathrooms (number).
+        If a property is missing required fields, mark it as failed with a reason.
+        
+        Return strictly JSON:
+        {
+            "properties": [
+                { "data": {...}, "status": "success" },
+                { "reason": "...", "status": "failed" }
+            ]
+        }
+        
+        Text to parse:
+        ${text}
+    `;
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-3.5-flash',
+        contents: prompt,
+        config: { responseMimeType: 'application/json' }
+    });
+
+    const parsed = JSON.parse(response.text || '{"properties":[]}');
+    
+    const summary = {
+        successCount: parsed.properties.filter((p: any) => p.status === 'success').length,
+        failureCount: parsed.properties.filter((p: any) => p.status === 'failed').length,
+        failures: parsed.properties.filter((p: any) => p.status === 'failed').map((p: any, i: number) => ({ index: i, reason: p.reason })),
+        properties: parsed.properties.filter((p: any) => p.status === 'success').map((p: any) => p.data)
+    };
+
+    res.json({ success: true, summary });
+  } catch (error) {
+    console.error('File parsing error:', error);
+    res.status(500).json({ error: 'Failed to process file' });
+  }
+});
 
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {

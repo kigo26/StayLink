@@ -11,7 +11,7 @@ import {
   Video, Check, AlertTriangle, Menu, Send, Mic, BadgePercent, Lock, 
   Award, QrCode, Globe, CheckCircle2, RotateCcw, Flame, Bus, LogOut,
   Smartphone, ShieldCheck, RefreshCw, Plus, Image as ImageIcon, Camera,
-  Mail, Map, List
+  Mail, Map, List, Star
 } from 'lucide-react';
 import { Property, RoommateProfile, UserProfile, Message, ChatSession, Booking, Transaction, PlatformStats } from '../types';
 import AdminConsole from './AdminConsole';
@@ -20,6 +20,8 @@ import AddPropertyScreen from './AddPropertyScreen';
 import CohortPreferencesScreen from './CohortPreferencesScreen';
 import ExploreInlineMap from './ExploreInlineMap';
 import PropertyComparer from './PropertyComparer';
+import PropertyReviewSection from './PropertyReviewSection';
+import VirtualTourOverlay from './VirtualTourOverlay';
 import { ErrorBoundary } from './ErrorBoundary';
 import { useSystemRecovery } from '../hooks/useSystemRecovery';
 import { db, auth } from '../firebase';
@@ -269,6 +271,7 @@ export default function MobileEmulator({
   // Property Comparison states
   const [comparedProperties, setComparedProperties] = useState<Property[]>([]);
   const [isComparisonOpen, setIsComparisonOpen] = useState(false);
+  const [isVirtualTourOpen, setIsVirtualTourOpen] = useState(false);
 
   const handleToggleCompare = (property: Property, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -1134,7 +1137,11 @@ export default function MobileEmulator({
                         <label className="text-[8.5px] font-extrabold text-neutral-400 uppercase tracking-widest font-mono">
                           {loginMethod === 'phone' ? 'M-Pesa Mobile Number' : 'Authorized Active Email'}
                         </label>
-                        <div className="relative">
+                        <motion.div 
+                          className="relative"
+                          animate={otpError && !otpSent ? { x: [-4, 4, -4, 4, 0] } : {}}
+                          transition={{ duration: 0.3 }}
+                        >
                           <input
                             type={loginMethod === 'email' ? 'email' : 'text'}
                             value={loginInput}
@@ -1147,9 +1154,9 @@ export default function MobileEmulator({
                                 ? 'e.g. +254 722 987 654'
                                 : 'e.g. host@staylink.co.ke'
                             }
-                            className="w-full py-3 px-4 bg-neutral-900 border border-neutral-850 rounded-xl text-xs text-white placeholder-neutral-550 focus:outline-none focus:border-blue-500 font-medium"
+                            className={`w-full py-3 px-4 bg-neutral-900 border ${otpError ? 'border-rose-500/50 focus:border-rose-500' : 'border-neutral-850 focus:border-blue-500'} rounded-xl text-xs text-white placeholder-neutral-550 focus:outline-none font-medium transition-colors`}
                           />
-                        </div>
+                        </motion.div>
                       </div>
 
                       {/* Informational Help Alert */}
@@ -1194,9 +1201,13 @@ export default function MobileEmulator({
                         </span>
                       </div>
 
-                      {/* Code inputs */}
+                        {/* Code inputs */}
                       <div className="flex flex-col items-center gap-2 text-left">
-                        <div className="flex justify-center gap-2">
+                        <motion.div 
+                          className="flex justify-center gap-2"
+                          animate={otpError && otpSent ? { x: [-4, 4, -4, 4, 0] } : {}}
+                          transition={{ duration: 0.3 }}
+                        >
                           {[0, 1, 2, 3].map((numIndex) => {
                             const char = enteredOtp[numIndex] || '';
                             return (
@@ -1204,15 +1215,15 @@ export default function MobileEmulator({
                                 key={numIndex}
                                 className={`w-11 h-11 rounded-xl border flex items-center justify-center font-mono text-sm font-black transition-all ${
                                   char
-                                    ? 'bg-neutral-900 border-blue-500 text-white text-base scale-102 ring-1 ring-blue-500/30'
-                                    : 'bg-neutral-900/60 border-neutral-850 text-neutral-500'
+                                    ? otpError ? 'bg-rose-500/10 border-rose-500 text-rose-500 text-base scale-102 ring-1 ring-rose-500/30' : 'bg-neutral-900 border-blue-500 text-white text-base scale-102 ring-1 ring-blue-500/30'
+                                    : otpError ? 'bg-rose-500/5 border-rose-500/50' : 'bg-neutral-900/60 border-neutral-850 text-neutral-500'
                                 }`}
                               >
                                 {char ? '•' : ''}
                               </div>
                             );
                           })}
-                        </div>
+                        </motion.div>
 
                         {/* Numeric Keyboard overlay */}
                         <div className="grid grid-cols-3 gap-1 w-full max-w-[200px] mt-1.5">
@@ -1730,6 +1741,13 @@ export default function MobileEmulator({
                           KSh {prop.price >= 1000000 ? `${(prop.price/1000000).toFixed(1)}M` : prop.price.toLocaleString()}
                           <span className="text-[9px] text-neutral-500 font-normal ml-0.5">/{prop.type === 'airbnb' || prop.type === 'hotel' ? 'day' : 'month'}</span>
                         </div>
+                        
+                        {prop.averageRating && (
+                          <div className="absolute top-3 right-3 bg-black/70 text-white rounded-full py-1 px-2 text-[10px] font-bold flex items-center gap-1">
+                            <Star className="w-3 h-3 fill-current text-amber-400" />
+                            {prop.averageRating.toFixed(1)}
+                          </div>
+                        )}
 
                         {/* Compare toggle trigger */}
                         <button
@@ -1896,6 +1914,12 @@ export default function MobileEmulator({
                       setIsComparisonOpen(false);
                       viewPropertyDetails(prop);
                     }}
+                  />
+                )}
+                {isVirtualTourOpen && (
+                  <VirtualTourOverlay
+                    property={activeProperty}
+                    onClose={() => setIsVirtualTourOpen(false)}
                   />
                 )}
               </AnimatePresence>
@@ -2390,7 +2414,7 @@ export default function MobileEmulator({
               </div>
 
               {/* Toggle Compare in Property Details */}
-              <div className="absolute top-4 right-4 z-50">
+              <div className="absolute top-4 right-4 z-50 flex flex-col gap-2">
                 <button 
                   onClick={(e) => handleToggleCompare(activeProperty, e)}
                   className={`p-2.5 rounded-full border shadow-md transition flex items-center justify-center cursor-pointer ${
@@ -2401,6 +2425,13 @@ export default function MobileEmulator({
                   title={comparedProperties.some(p => p.id === activeProperty.id) ? 'Remove from Comparison' : 'Add to Comparison'}
                 >
                   <Compass className={`w-5 h-5 ${comparedProperties.some(p => p.id === activeProperty.id) ? 'animate-spin' : ''}`} style={{ animationDuration: '6s' }} />
+                </button>
+                <button 
+                  onClick={() => setIsVirtualTourOpen(true)}
+                  className="p-2.5 rounded-full border shadow-md bg-white border-neutral-200 text-neutral-800 hover:bg-neutral-50 transition flex items-center justify-center cursor-pointer"
+                  title="View Virtual Tour"
+                >
+                  <Camera className="w-5 h-5" />
                 </button>
               </div>
 
@@ -2519,6 +2550,8 @@ export default function MobileEmulator({
                     </div>
                   </div>
                 </div>
+
+                <PropertyReviewSection property={activeProperty} />
 
                 {/* Smart Vector Map Mocking */}
                 <div className="p-4 bg-sky-50 border border-sky-100 rounded-3xl text-left space-y-2">

@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, Camera, Image as ImageIcon } from 'lucide-react';
 import { Property, UserProfile } from '../types';
+
+import PropertyUpload from './PropertyUpload';
+import UploadSummaryModal from './UploadSummaryModal';
+import { useLocalStorage } from '../hooks/useLocalStorage';
 
 interface AddPropertyScreenProps {
   onBack: () => void;
@@ -10,17 +14,38 @@ interface AddPropertyScreenProps {
 }
 
 export default function AddPropertyScreen({ onBack, onSubmit, currentUser }: AddPropertyScreenProps) {
-  const [title, setTitle] = useState('');
-  const [price, setPrice] = useState('');
-  const [type, setType] = useState<'apartment' | 'airbnb' | 'roommate' | 'sale' | 'hotel'>('apartment');
-  const [bedrooms, setBedrooms] = useState('1');
-  const [bathrooms, setBathrooms] = useState('1');
-  const [location, setLocation] = useState('');
+  const [title, setTitle] = useLocalStorage('add_prop_title', '');
+  const [price, setPrice] = useLocalStorage('add_prop_price', '');
+  const [type, setType] = useLocalStorage<'apartment' | 'airbnb' | 'roommate' | 'sale' | 'hotel'>('add_prop_type', 'apartment');
+  const [bedrooms, setBedrooms] = useLocalStorage('add_prop_bedrooms', '1');
+  const [bathrooms, setBathrooms] = useLocalStorage('add_prop_bathrooms', '1');
+  const [location, setLocation] = useLocalStorage('add_prop_location', '');
   const [mainImage, setMainImage] = useState('');
+  const [uploadSummary, setUploadSummary] = useState<any>(null);
+
+  const handleUpload = (summary: any) => {
+    setUploadSummary(summary);
+    // Optionally pre-fill with the first successful property
+    if (summary.properties && summary.properties.length > 0) {
+        const prop = summary.properties[0];
+        setTitle(prop.title);
+        setPrice(prop.price.toString());
+        setType(prop.type);
+        setLocation(prop.location);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !price || !location) return;
+
+    // Clear saved state
+    localStorage.removeItem('add_prop_title');
+    localStorage.removeItem('add_prop_price');
+    localStorage.removeItem('add_prop_type');
+    localStorage.removeItem('add_prop_bedrooms');
+    localStorage.removeItem('add_prop_bathrooms');
+    localStorage.removeItem('add_prop_location');
 
     onSubmit({
       title,
@@ -70,6 +95,14 @@ export default function AddPropertyScreen({ onBack, onSubmit, currentUser }: Add
 
       <div className="flex-1 overflow-y-auto px-4 py-6">
         <form onSubmit={handleSubmit} className="space-y-5">
+          
+          <PropertyUpload onUploadComplete={handleUpload} />
+
+          <AnimatePresence>
+            {uploadSummary && (
+                <UploadSummaryModal summary={uploadSummary} onClose={() => setUploadSummary(null)} />
+            )}
+          </AnimatePresence>
           
           {/* Image Upload Area */}
           <div 

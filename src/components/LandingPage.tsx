@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, Award, Compass, Lock, Users, MapPin, CheckCircle, ChevronRight, MessageSquare, Heart, Star, Phone, ShieldCheck, Mail, Building2, Globe, ArrowRight, User } from 'lucide-react';
 import { motion } from 'motion/react';
-import { signInAnonymously } from 'firebase/auth';
+import { RecaptchaVerifier } from 'firebase/auth';
 import { auth } from '../firebase';
 
 interface RoleOption {
@@ -97,6 +97,22 @@ export default function LandingPage({
         (window as any).recaptchaVerifier = null;
       }
     };
+  }, [showAuthModal]);
+
+  useEffect(() => {
+    if (
+      showAuthModal &&
+      !(window as any).recaptchaVerifier
+    ) {
+      (window as any).recaptchaVerifier =
+        new RecaptchaVerifier(
+          auth,
+          'recaptcha-container',
+          {
+            size: 'invisible'
+          }
+        );
+    }
   }, [showAuthModal]);
 
   const handleGoogleAuth = async () => {
@@ -341,30 +357,22 @@ export default function LandingPage({
 
                       setAuthError(null);
                       try {
-                        const { RecaptchaVerifier, signInWithPhoneNumber } = await import('firebase/auth');
+                        const { signInWithPhoneNumber } = await import('firebase/auth');
                         const { auth } = await import('../firebase');
                         
-                        // Safely clear any previous reCAPTCHA widgets to prevent "client element removed" error
-                        if ((window as any).recaptchaVerifier) {
-                          try {
-                            (window as any).recaptchaVerifier.clear();
-                          } catch (clearErr) {
-                            console.warn("Failed to clear previous recaptcha verifier:", clearErr);
-                          }
-                          (window as any).recaptchaVerifier = null;
-                        }
+                        const verifier =
+                          (window as any).recaptchaVerifier;
 
-                        // Instantiate fresh verifier bound to our dedicated, inline container
-                        const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-                          'size': 'invisible',
-                          'callback': (response: any) => {
-                            // reCAPTCHA solved
-                          }
-                        });
-                        (window as any).recaptchaVerifier = recaptchaVerifier;
+                        const confirmationResult =
+                          await signInWithPhoneNumber(
+                            auth,
+                            emailOrPhone,
+                            verifier
+                          );
 
-                        const confirmationResult = await signInWithPhoneNumber(auth, emailOrPhone, recaptchaVerifier);
-                        (window as any).confirmationResult = confirmationResult;
+                        (window as any).confirmationResult =
+                          confirmationResult;
+
                         setAuthStep('verify');
                       } catch (err: any) {
                         console.warn(err);
@@ -421,7 +429,7 @@ export default function LandingPage({
 
                         // Store or verify the user document in firestore
                         if (verifiedUser) {
-                          const { getDoc, setDoc, doc } = await import('firebase/firestore');
+                          const { getDoc, setDoc, doc, serverTimestamp } = await import('firebase/firestore');
                           const { db } = await import('../firebase');
                           
                           const userRef = doc(db, 'users', verifiedUser.uid);
@@ -433,7 +441,7 @@ export default function LandingPage({
                                 fullName,
                                 phone: verifiedUser.phoneNumber || emailOrPhone,
                                 role: selectedRole || 'tenant',
-                                createdAt: new Date().toISOString()
+                                createdAt: serverTimestamp()
                               });
                             }
                           } else {

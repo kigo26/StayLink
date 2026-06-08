@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Shield, Award, Compass, Lock, Users, MapPin, CheckCircle, ChevronRight, MessageSquare, Heart, Star, Phone, ShieldCheck, Mail, Building2, Globe, ArrowRight, User } from 'lucide-react';
 import { motion } from 'motion/react';
 import { signInAnonymously } from 'firebase/auth';
@@ -75,6 +75,29 @@ export default function LandingPage({
   const [expectedCode, setExpectedCode] = useState('');
 
   const [authError, setAuthError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!showAuthModal) {
+      if ((window as any).recaptchaVerifier) {
+        try {
+          (window as any).recaptchaVerifier.clear();
+        } catch (err) {
+          console.warn("Error clearing captcha on close:", err);
+        }
+        (window as any).recaptchaVerifier = null;
+      }
+    }
+    return () => {
+      if ((window as any).recaptchaVerifier) {
+        try {
+          (window as any).recaptchaVerifier.clear();
+        } catch (err) {
+          console.warn("Error clearing captcha on unmount:", err);
+        }
+        (window as any).recaptchaVerifier = null;
+      }
+    };
+  }, [showAuthModal]);
 
   const handleGoogleAuth = async () => {
     setAuthError(null);
@@ -306,6 +329,7 @@ export default function LandingPage({
                     className="w-full bg-[#050914] border border-white/10 py-3 px-4 rounded-xl text-sm font-bold text-white outline-none focus:border-blue-500 transition"
                   />
                 </div>
+                <div id="recaptcha-container"></div>
                 <button
                   id="send-otp-button"
                   onClick={async () => {
@@ -320,16 +344,26 @@ export default function LandingPage({
                         const { RecaptchaVerifier, signInWithPhoneNumber } = await import('firebase/auth');
                         const { auth } = await import('../firebase');
                         
-                        if (!(window as any).recaptchaVerifier) {
-                          (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'send-otp-button', {
-                            'size': 'invisible',
-                            'callback': (response: any) => {
-                              // reCAPTCHA solved
-                            }
-                          });
+                        // Safely clear any previous reCAPTCHA widgets to prevent "client element removed" error
+                        if ((window as any).recaptchaVerifier) {
+                          try {
+                            (window as any).recaptchaVerifier.clear();
+                          } catch (clearErr) {
+                            console.warn("Failed to clear previous recaptcha verifier:", clearErr);
+                          }
+                          (window as any).recaptchaVerifier = null;
                         }
-                        const appVerifier = (window as any).recaptchaVerifier;
-                        const confirmationResult = await signInWithPhoneNumber(auth, emailOrPhone, appVerifier);
+
+                        // Instantiate fresh verifier bound to our dedicated, inline container
+                        const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+                          'size': 'invisible',
+                          'callback': (response: any) => {
+                            // reCAPTCHA solved
+                          }
+                        });
+                        (window as any).recaptchaVerifier = recaptchaVerifier;
+
+                        const confirmationResult = await signInWithPhoneNumber(auth, emailOrPhone, recaptchaVerifier);
                         (window as any).confirmationResult = confirmationResult;
                         setAuthStep('verify');
                       } catch (err: any) {

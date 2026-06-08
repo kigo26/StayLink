@@ -11,7 +11,7 @@ import {
   Video, Check, AlertTriangle, Menu, Send, Mic, BadgePercent, Lock, 
   Award, QrCode, Globe, CheckCircle2, RotateCcw, Flame, Bus, LogOut,
   Smartphone, ShieldCheck, RefreshCw, Plus, Image as ImageIcon, Camera,
-  Mail, Map, List, Star
+  Mail, Map, List, Star, ChevronRight
 } from 'lucide-react';
 import { Property, RoommateProfile, UserProfile, Message, ChatSession, Booking, Transaction, PlatformStats } from '../types';
 import AdminConsole from './AdminConsole';
@@ -202,6 +202,90 @@ const REGISTRATION_ROLES = [
   }
 ];
 
+function PropertyImageCarousel({ images, qualityScore }: { images: string[], qualityScore: number }) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const scrollLeft = e.currentTarget.scrollLeft;
+    const width = e.currentTarget.clientWidth;
+    const newIndex = Math.round(scrollLeft / width);
+    if (newIndex !== currentIndex) {
+      setCurrentIndex(newIndex);
+    }
+  };
+
+  return (
+    <div className="relative h-64 w-full bg-neutral-200 overflow-hidden shadow-xs group">
+      <div 
+        id="property-image-carousel"
+        className="flex h-full w-full overflow-x-auto snap-x snap-mandatory scroll-smooth"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        onScroll={handleScroll}
+      >
+        {images.map((img, idx) => (
+          <div key={idx} className="h-full min-w-full flex-shrink-0 snap-center relative">
+            <img src={img} className="w-full h-full object-cover" />
+          </div>
+        ))}
+      </div>
+      
+      {/* Navigation Arrows for mouse users (visible on hover) */}
+      {images.length > 1 && (
+        <>
+          <button 
+            onClick={() => {
+              const el = document.getElementById('property-image-carousel');
+              if (el && currentIndex > 0) el.scrollTo({ left: (currentIndex - 1) * el.clientWidth, behavior: 'smooth' });
+            }}
+            className={`absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity ${currentIndex === 0 ? 'hidden' : 'block'}`}
+            title="Previous image"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <button 
+            onClick={() => {
+              const el = document.getElementById('property-image-carousel');
+              if (el && currentIndex < images.length - 1) el.scrollTo({ left: (currentIndex + 1) * el.clientWidth, behavior: 'smooth' });
+            }}
+            className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity ${currentIndex === images.length - 1 ? 'hidden' : 'block'}`}
+            title="Next image"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </>
+      )}
+
+      {/* Top Counter Badge */}
+      {images.length > 1 && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] font-bold text-white tracking-widest uppercase shadow-sm pointer-events-none z-10 border border-white/10">
+          {currentIndex + 1} / {images.length}
+        </div>
+      )}
+
+      {/* Quality Score overlay */}
+      <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/50 via-transparent to-transparent flex items-end">
+        <div className="mb-4 ml-4 bg-black/75 backdrop-blur-md px-3 py-1 rounded-full text-[10px] text-white tracking-widest uppercase font-mono pointer-events-auto border border-white/10">
+          📊 QUALITY SCORE: {qualityScore}%
+        </div>
+      </div>
+      
+      {/* Visual dots */}
+      {images.length > 1 && (
+        <div className="absolute bottom-4 right-4 flex gap-1.5 pointer-events-none">
+          {images.map((_, idx) => (
+            <div 
+              key={`dot-${idx}`} 
+              className={`h-1.5 rounded-full shadow-sm transition-all duration-300 ${
+                currentIndex === idx ? 'bg-white w-4' : 'bg-white/50 w-1.5'
+              }`} 
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MobileEmulator({
   properties,
   roommates,
@@ -365,7 +449,11 @@ export default function MobileEmulator({
       // Sign in anonymously if not already signed in to bypass firestore.rules permission guard safely
       if (!auth.currentUser) {
         console.log('[StayLink Auth] Authenticating anonymously to enable authorized database queries...');
-        await signInAnonymously(auth);
+        try {
+          await signInAnonymously(auth);
+        } catch (authErr: any) {
+          console.warn('[StayLink Auth] Anonymous auth failed:', authErr.message);
+        }
       }
 
       // Query real properties collection in Firestore
@@ -1112,7 +1200,7 @@ export default function MobileEmulator({
                           }`}
                         >
                           <Smartphone className={`w-5 h-5 ${loginMethod === 'phone' ? 'text-blue-400' : 'text-neutral-500'}`} />
-                          <span className="text-[9px] font-black uppercase tracking-wider">Kenyan Phone</span>
+                          <span className="text-[9px] font-black uppercase tracking-wider">Phone Number</span>
                         </button>
 
                         <button
@@ -1135,7 +1223,7 @@ export default function MobileEmulator({
                       {/* Input field */}
                       <div className="space-y-1.5 text-left">
                         <label className="text-[8.5px] font-extrabold text-neutral-400 uppercase tracking-widest font-mono">
-                          {loginMethod === 'phone' ? 'M-Pesa Mobile Number' : 'Authorized Active Email'}
+                          {loginMethod === 'phone' ? 'Phone Number' : 'Authorized Active Email'}
                         </label>
                         <motion.div 
                           className="relative"
@@ -1183,7 +1271,7 @@ export default function MobileEmulator({
                         className="w-full py-4 bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 text-white rounded-2xl font-black text-[11px] uppercase tracking-wider shadow-lg active:scale-98 transition flex items-center justify-center gap-2 cursor-pointer border border-blue-500/20"
                       >
                         <Send className="w-4 h-4 text-sky-200" />
-                        Send OTP Secure Code
+                        Send OTP to number via sms
                       </button>
                     </div>
                   ) : (
@@ -2436,12 +2524,7 @@ export default function MobileEmulator({
               </div>
 
               {/* Main Images Scroller */}
-              <div className="relative h-64 w-full bg-neutral-200 overflow-hidden shadow-xs">
-                <img src={activeProperty.images[0]} className="w-full h-full object-cover" />
-                <div className="absolute bottom-4 left-4 bg-black/75 px-3 py-1 rounded-full text-[10px] text-white tracking-widest uppercase font-mono">
-                  📊 QUALITY SCORE: {activeProperty.aiQualityScore}%
-                </div>
-              </div>
+              <PropertyImageCarousel images={activeProperty.images} qualityScore={activeProperty.aiQualityScore} />
 
               {/* Collapsible Content */}
               <div className="flex-1 overflow-y-auto p-4 space-y-4 text-left">

@@ -10,7 +10,7 @@ import { GoogleGenAI, Type } from '@google/genai';
 import dotenv from 'dotenv';
 import multer from 'multer';
 import * as XLSX from 'xlsx';
-const pdfParse = require('pdf-parse');
+import { PDFParse } from 'pdf-parse';
 import mammoth from 'mammoth';
 
 dotenv.config();
@@ -436,8 +436,9 @@ app.post('/api/upload-property', upload.single('file'), async (req: Request, res
     const ext = path.extname(file.originalname).toLowerCase();
     
     if (ext === '.pdf') {
-      const pdf = await pdfParse(file.buffer);
-      text = pdf.text;
+      const pdf = new PDFParse(new Uint8Array(file.buffer));
+      const result = await pdf.getText();
+      text = result.text;
     } else if (ext === '.docx') {
       const result = await mammoth.extractRawText({ buffer: file.buffer });
       text = result.value;

@@ -7,7 +7,10 @@ import firebaseConfig from '../firebase-applet-config.json';
 const app = initializeApp(firebaseConfig);
 
 // Initialize Firestore with the specific database instances
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+const configWithDb = firebaseConfig as { firestoreDatabaseId?: string };
+export const db = configWithDb.firestoreDatabaseId
+  ? getFirestore(app, configWithDb.firestoreDatabaseId)
+  : getFirestore(app);
 
 // Initialize Authenication
 export const auth = getAuth(app);

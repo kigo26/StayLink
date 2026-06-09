@@ -56,6 +56,8 @@ const ROLES: RoleOption[] = [
   }
 ];
 
+import { StayLinkLogo } from './StayLinkLogo';
+
 export default function LandingPage({ 
   onComplete,
   initialAuthMode = 'login',
@@ -104,6 +106,10 @@ export default function LandingPage({
       showAuthModal &&
       !(window as any).recaptchaVerifier
     ) {
+      const container = document.getElementById('recaptcha-container');
+      if (container) {
+        container.innerHTML = '';
+      }
       (window as any).recaptchaVerifier =
         new RecaptchaVerifier(
           auth,
@@ -154,9 +160,7 @@ export default function LandingPage({
           <div className="flex flex-col lg:flex-row justify-between items-center px-6 pb-5 pt-2 gap-4 lg:gap-0">
             {/* Logo Area */}
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-[14px] bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                <span className="text-white font-black text-2xl tracking-tighter">S</span>
-              </div>
+              <StayLinkLogo className="w-14 h-14" />
               <div className="flex flex-col justify-center">
                 <h1 className="text-white font-black text-xl tracking-tight leading-tighter flex items-center gap-1">
                   STAYLINK 
@@ -168,16 +172,14 @@ export default function LandingPage({
             {/* Right Status */}
             <div className="flex flex-col items-end gap-2">
               <div 
-                onClick={() => { setAuthMode('login'); setShowAuthModal(true); }}
-                className="flex items-center gap-3 bg-[#080d19] border border-blue-900/40 px-4 py-2 rounded-xl cursor-pointer hover:bg-[#0a1222] transition group"
+                className="flex items-center gap-3 bg-blue-600 border border-blue-700 px-4 py-2 rounded-xl transition group shadow-md"                
               >
-                <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                  <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
+                  <ShieldCheck className="w-4 h-4 text-white" />
                 </div>
                 <div className="flex flex-col text-left mr-4">
                   <span className="text-white text-[12px] font-bold leading-tight">Staylink Secure Systems</span>
                 </div>
-                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-white transition" />
               </div>
             </div>
           </div>
@@ -187,7 +189,8 @@ export default function LandingPage({
       <main className="flex-1 w-full max-w-7xl mx-auto px-6 py-8 flex flex-col items-center">
         
         {/* Main Title Area */}
-        <div className="text-center max-w-3xl mb-12">
+        <div className="text-center max-w-3xl mb-12 flex flex-col items-center">
+          <StayLinkLogo className="w-32 h-32 mb-4 drop-shadow-[0_0_15px_rgba(14,165,233,0.3)] animate-float" />
           <h2 className="text-5xl md:text-6xl font-black text-white italic tracking-tight mb-4 flex items-center justify-center gap-2">
             STAYLINK           
             
@@ -548,13 +551,13 @@ function SparkleIcon() {
 
 function Badge({ text, subtext, icon }: { text: string; subtext: string; icon: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-2 bg-white/5 rounded-full px-4 py-2 border border-white/10">
-      <div className="text-blue-400">
+    <div className="flex items-center gap-3 bg-slate-900/80 backdrop-blur-md rounded-2xl px-5 py-3 border border-slate-800 shadow-xl hover:border-emerald-500/50 hover:bg-slate-800/80 transition-all cursor-default group">
+      <div className="text-emerald-500 bg-emerald-500/10 p-2 rounded-xl group-hover:scale-110 transition-transform">
         {icon}
       </div>
       <div className="text-left">
-        <div className="text-xs font-bold text-white leading-tight">{text}</div>
-        <div className="text-[9px] text-slate-400">{subtext}</div>
+        <div className="text-sm font-black text-slate-100 uppercase tracking-widest leading-tight">{text}</div>
+        <div className="text-[10px] text-slate-400 font-medium">{subtext}</div>
       </div>
     </div>
   );

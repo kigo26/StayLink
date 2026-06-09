@@ -49,6 +49,13 @@ interface EmulatorProps {
   onUpdateBookings: (bookings: Booking[]) => void;
 }
 
+const pageTransitions = {
+  initial: { opacity: 0, x: 25 },
+  animate: { opacity: 1, x: 0 },
+  exit: { opacity: 0, x: -25 },
+  transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] }
+};
+
 const REGISTRATION_ROLES = [
   {
     id: 'tenant',
@@ -1113,9 +1120,7 @@ export default function MobileEmulator({
           {activeScreen === 'welcome' && (
             <motion.div 
               key="welcome"
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -15 }}
+              {...pageTransitions}
               className="flex-1 flex flex-col items-center justify-between p-5 bg-neutral-950 text-neutral-100"
             >
               {/* Sleek Header Section */}
@@ -1494,9 +1499,7 @@ export default function MobileEmulator({
           {activeScreen === 'face_scan' && (
             <motion.div 
               key="face"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              {...pageTransitions}
               className="flex-1 flex flex-col bg-neutral-950 text-white p-6 justify-between"
             >
               <div className="flex justify-between items-center top-2">
@@ -1578,9 +1581,7 @@ export default function MobileEmulator({
           {activeScreen === 'document_scan' && (
             <motion.div 
               key="doc_scan"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              {...pageTransitions}
               className="flex-1 flex flex-col bg-neutral-950 text-white p-6 justify-between"
             >
               <div className="flex justify-between items-center top-2">
@@ -1673,21 +1674,21 @@ export default function MobileEmulator({
           {activeScreen === 'explore' && (
             <motion.div 
               key="explore"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              {...pageTransitions}
               className="flex-1 flex flex-col bg-neutral-50 text-neutral-800"
             >
               {/* Verification Alert */}
               {!userProfile.isVerified && (
-                <div className="px-4 py-3 bg-amber-50 border-b border-amber-200 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 flex-shrink-0">
-                      <AlertTriangle className="w-4 h-4" />
+                <div className="mx-4 mt-4 mb-2 p-4 bg-white border border-amber-200/60 rounded-2xl flex items-center justify-between shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative overflow-hidden group">
+                  <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-amber-400 to-orange-500"></div>
+                  
+                  <div className="flex items-center gap-3.5 relative z-10 ml-1">
+                    <div className="w-10 h-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0 border border-amber-100">
+                      <Shield className="w-5 h-5" />
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-amber-900">Verification Required</h4>
-                      <p className="text-[10px] text-amber-700 leading-tight mt-0.5">Complete your biometrics to book properties or contact landlords.</p>
+                      <h4 className="text-sm font-black text-neutral-900 tracking-tight leading-none mb-1 text-left">Verify Identity</h4>
+                      <p className="text-[10px] text-neutral-500 font-medium text-left">Unlock bookings & direct chats</p>
                     </div>
                   </div>
                   <button 
@@ -1695,7 +1696,7 @@ export default function MobileEmulator({
                       setFaceScanOrigin('explore');
                       setActiveScreen('face_scan');
                     }}
-                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[10px] font-bold whitespace-nowrap transition cursor-pointer shadow-xs"
+                    className="relative z-10 px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer shadow-md active:scale-95 flex items-center gap-1.5"
                   >
                     Verify ID
                   </button>
@@ -1859,36 +1860,36 @@ export default function MobileEmulator({
                     <span className="text-[10px] text-neutral-400 font-medium">({filteredProperties.length} active listings)</span>
                   </div>
                   
-                  {/* Segmented View Mode Toggle */}
-                  <div className="flex items-center gap-2">
-                    <div className="flex bg-neutral-200/90 p-0.5 rounded-xl border border-neutral-300/60 shadow-inner shrink-0 leading-none">
-                      <button
-                        onClick={() => setExploreViewMode('grid')}
-                        className={`p-1.5 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
-                          exploreViewMode === 'grid'
-                            ? 'bg-white text-blue-600 shadow-sm scale-102 font-bold'
-                            : 'text-neutral-500 hover:text-neutral-800'
-                        }`}
-                        title="Grid List View"
-                      >
-                        <List className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => setExploreViewMode('map')}
-                        className={`p-1.5 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
-                          exploreViewMode === 'map'
-                            ? 'bg-white text-blue-600 shadow-sm scale-102 font-bold'
-                            : 'text-neutral-500 hover:text-neutral-800'
-                        }`}
-                        title="Geographical Map View"
-                      >
-                        <Map className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+                  {/* View Mode & Map Tools */}
+                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+                    <button
+                      onClick={() => setExploreViewMode('grid')}
+                      className={`flex items-center gap-1.5 px-3 py-[7px] font-extrabold text-[10px] rounded-xl transition uppercase tracking-wider cursor-pointer border-none whitespace-nowrap shrink-0 ${
+                        exploreViewMode === 'grid'
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                      }`}
+                    >
+                      <List className="w-3.5 h-3.5" /> LIST VIEW
+                    </button>
+                    
+                    <motion.button
+                      whileHover={{ scale: 1.05, transition: { repeat: Infinity, duration: 1, repeatType: "reverse" } }}
+                      onClick={() => setExploreViewMode('map')}
+                      className={`flex items-center gap-1.5 px-3 py-[7px] font-extrabold text-[10px] rounded-xl transition uppercase tracking-wider cursor-pointer border-none whitespace-nowrap shrink-0 ${
+                        exploreViewMode === 'map'
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                      }`}
+                    >
+                      <Map className="w-3.5 h-3.5" /> MAP VIEW
+                    </motion.button>
+
+                    <div className="flex-1 min-w-[8px]" />
 
                     <button
                       onClick={() => setActiveScreen('map_tracker')}
-                      className="flex items-center gap-1.5 px-3 py-1.8 bg-blue-650 hover:bg-blue-750 text-white font-extrabold text-[10px] rounded-xl transition uppercase tracking-wider cursor-pointer shadow-xs border-none"
+                      className="flex items-center gap-1.5 px-3 py-[7px] bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-[10px] rounded-xl transition uppercase tracking-wider cursor-pointer shadow-xs border-none whitespace-nowrap shrink-0"
                     >
                       <Globe className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '8s' }} /> GPS Mapping
                     </button>
@@ -2231,9 +2232,7 @@ export default function MobileEmulator({
           {activeScreen === 'map_tracker' && (
             <motion.div 
               key="map-tracker"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              {...pageTransitions}
               className="flex-1 flex flex-col bg-neutral-100 text-neutral-800 relative h-full justify-between"
             >
               {/* Back navigation Top Header */}
@@ -2318,9 +2317,7 @@ export default function MobileEmulator({
           {activeScreen === 'tiktok_feed' && (
             <motion.div 
               key="tiktok"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              {...pageTransitions}
               className="flex-1 flex flex-col bg-neutral-950 text-white relative h-full justify-between"
             >
               {/* Header inside feed */}
@@ -2462,9 +2459,7 @@ export default function MobileEmulator({
           {activeScreen === 'roommate' && activePartner && (
             <motion.div 
               key="roommate-details"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              {...pageTransitions}
               className="flex-1 flex flex-col bg-[#faf5ff] text-neutral-900 p-6 justify-between"
             >
               <div className="flex justify-between items-center">
@@ -2645,9 +2640,7 @@ export default function MobileEmulator({
           {activeScreen === 'details' && activeProperty && (
             <motion.div 
               key="details-screen"
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -15 }}
+              {...pageTransitions}
               className="flex-1 flex flex-col bg-white text-neutral-800"
             >
               {/* Back navigation */}
@@ -2952,9 +2945,7 @@ export default function MobileEmulator({
           {activeScreen === 'chat' && activeChat && (
             <motion.div 
               key="chat-screen"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              {...pageTransitions}
               className="flex-1 flex flex-col bg-neutral-100 text-neutral-800 justify-between h-full"
             >
               {/* Chat Sub Header */}
@@ -3054,9 +3045,7 @@ export default function MobileEmulator({
           {activeScreen === 'checkout' && activeProperty && (
             <motion.div 
               key="checkout"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              {...pageTransitions}
               className="flex-1 flex flex-col bg-[#fafafc] text-neutral-900 p-6 justify-between"
             >
               <div className="flex justify-between items-center">
@@ -3181,9 +3170,7 @@ export default function MobileEmulator({
           {activeScreen === 'receipt' && createdBooking && (
             <motion.div 
               key="receipt"
-              initial={{ scale: 0.95 }}
-              animate={{ scale: 1 }}
-              exit={{ opacity: 0 }}
+              {...pageTransitions}
               className="flex-1 flex flex-col bg-[#eff6ff] p-6 justify-between text-neutral-950"
             >
               <div className="flex justify-between items-center text-xs">
@@ -3245,9 +3232,7 @@ export default function MobileEmulator({
           {activeScreen === 'profile' && (
             <motion.div 
               key="profile"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              {...pageTransitions}
               className="flex-1 flex flex-col bg-neutral-100 text-neutral-800 p-6 justify-between"
             >
               <div className="flex justify-between items-center">
@@ -3409,45 +3394,47 @@ export default function MobileEmulator({
 
           {/* COHORT PREFERENCES SCREEN */}
           {activeScreen === 'cohort_preferences' && (
-            <CohortPreferencesScreen 
-              currentUser={userProfile}
-              onBack={() => setActiveScreen('profile')}
-              onSubmit={(prefs) => {
-                const existing = roommates.find(r => r.uid === prefs.uid);
-                if (existing) {
-                  const updated = roommates.map(r => r.uid === prefs.uid ? { ...r, ...prefs } : r);
-                  onStateUpdate({ roommates: updated });
-                } else {
-                  onStateUpdate({ roommates: [prefs as RoommateProfile, ...roommates] });
-                }
-                setActiveScreen('profile');
-              }}
-            />
+            <motion.div key="cohort_preferences" {...pageTransitions} className="flex-1 flex flex-col w-full h-full">
+              <CohortPreferencesScreen 
+                currentUser={userProfile}
+                onBack={() => setActiveScreen('profile')}
+                onSubmit={(prefs) => {
+                  const existing = roommates.find(r => r.uid === prefs.uid);
+                  if (existing) {
+                    const updated = roommates.map(r => r.uid === prefs.uid ? { ...r, ...prefs } : r);
+                    onStateUpdate({ roommates: updated });
+                  } else {
+                    onStateUpdate({ roommates: [prefs as RoommateProfile, ...roommates] });
+                  }
+                  setActiveScreen('profile');
+                }}
+              />
+            </motion.div>
           )}
 
           {/* LIST PROPERTY SCREEN */}
           {activeScreen === 'add_property' && (
-            <AddPropertyScreen 
-              currentUser={userProfile}
-              onBack={() => setActiveScreen('explore')}
-              onSubmit={(newProp) => {
-                const fullProp: Property = {
-                  id: `prop_${Date.now()}`,
-                  ...newProp
-                } as Property;
-                onStateUpdate({ properties: [fullProp, ...properties] });
-                setActiveScreen('explore');
-              }}
-            />
+            <motion.div key="add_property" {...pageTransitions} className="flex-1 flex flex-col w-full h-full">
+              <AddPropertyScreen 
+                currentUser={userProfile}
+                onBack={() => setActiveScreen('explore')}
+                onSubmit={(newProp) => {
+                  const fullProp: Property = {
+                    id: `prop_${Date.now()}`,
+                    ...newProp
+                  } as Property;
+                  onStateUpdate({ properties: [fullProp, ...properties] });
+                  setActiveScreen('explore');
+                }}
+              />
+            </motion.div>
           )}
 
           {/* 11. EMBEDDED ADMIN CONSOLE SCREEN */}
           {activeScreen === 'admin_console' && (
             <motion.div 
               key="admin_console"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              {...pageTransitions}
               className="flex-1 flex flex-col bg-[#0b0f19] text-white relative h-full justify-between w-full"
             >
               <div className="flex-1 overflow-y-auto p-2">

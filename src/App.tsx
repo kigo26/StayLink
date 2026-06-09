@@ -30,6 +30,7 @@ import {
 } from "./components/Notification";
 import { auth } from "./firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
+import { StayLinkLogo } from "./components/StayLinkLogo";
 
 const INITIAL_BOOKINGS: Booking[] = [
   {
@@ -200,7 +201,7 @@ export default function App() {
             if (data.role) setFirebaseUserRole(data.role);
           }
         } catch (err) {
-          console.error("Error fetching user profile", err);
+          console.warn("Error fetching user profile", err);
         }
       } else {
         setFirebaseUserName("");
@@ -365,12 +366,10 @@ export default function App() {
 
               <div className="flex items-center gap-4 mt-8">
                 <div
-                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-[12px] bg-[#0ea5e9] flex items-center justify-center shadow-lg cursor-pointer"
+                  className="cursor-pointer group flex items-center"
                   onClick={() => setLandingState({ show: true })}
                 >
-                  <span className="text-white font-black text-xl sm:text-2xl tracking-tighter">
-                    S
-                  </span>
+                  <StayLinkLogo className="w-10 h-10 sm:w-12 sm:h-12 group-hover:scale-110 transition-transform" />
                 </div>
                 <div className="flex flex-col justify-center">
                   <h1

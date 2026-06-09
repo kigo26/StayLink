@@ -157,6 +157,8 @@ export default function App() {
   }>({ show: true });
   const [selectedRole, setSelectedRole] = useState<string>("landlord");
   const [firebaseUser, setFirebaseUser] = useState<any>(null);
+  const [firebaseUserName, setFirebaseUserName] = useState<string>("");
+  const [firebaseUserRole, setFirebaseUserRole] = useState<string>("tenant");
   const [customAvatar, setCustomAvatar] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
 
@@ -178,8 +180,32 @@ export default function App() {
   };
 
   React.useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setFirebaseUser(user);
+      if (user) {
+        setFirebaseUserName(user.displayName || user.phoneNumber || "Guest User");
+        try {
+          const { getDoc, getDocFromCache, doc } = await import('firebase/firestore');
+          const { db } = await import('./firebase');
+          const userRef = doc(db, 'users', user.uid);
+          let snap;
+          try {
+            snap = await getDocFromCache(userRef);
+          } catch (e) {
+            snap = await getDoc(userRef);
+          }
+          if (snap.exists()) {
+            const data = snap.data();
+            if (data.fullName) setFirebaseUserName(data.fullName);
+            if (data.role) setFirebaseUserRole(data.role);
+          }
+        } catch (err) {
+          console.error("Error fetching user profile", err);
+        }
+      } else {
+        setFirebaseUserName("");
+        setFirebaseUserRole("tenant");
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -188,7 +214,7 @@ export default function App() {
     customAvatar ||
     firebaseUser?.photoURL ||
     (firebaseUser
-      ? `https://ui-avatars.com/api/?name=${encodeURIComponent(firebaseUser.displayName || "User")}&background=0D8ABC&color=fff`
+      ? `https://ui-avatars.com/api/?name=${encodeURIComponent(firebaseUserName || "User")}&background=0D8ABC&color=fff`
       : CURRENT_USER.avatar);
 
   const handleAvatarChange = () => {
@@ -283,6 +309,7 @@ export default function App() {
           initialShowModal={landingState.showModal || false}
           onComplete={(role) => {
             setSelectedRole(role);
+            setFirebaseUserRole(role);
             setLandingState({ show: false });
           }}
         />
@@ -301,7 +328,7 @@ export default function App() {
                   {firebaseUser ? (
                     <button
                       onClick={handleLogout}
-                      className="text-rose-500 hover:text-rose-400 font-mono text-sm tracking-widest transition-colors cursor-pointer"
+                      className="px-5 py-2 rounded-full border border-rose-500/30 text-rose-400 hover:bg-rose-500/10 hover:border-rose-400 font-sans text-xs font-bold uppercase tracking-widest transition-all cursor-pointer shadow-[0_0_10px_rgba(244,63,94,0.1)]"
                     >
                       Logout
                     </button>
@@ -315,7 +342,7 @@ export default function App() {
                             showModal: true,
                           })
                         }
-                        className="text-blue-600 hover:text-blue-500 font-mono text-sm tracking-widest transition-colors cursor-pointer"
+                        className="px-5 py-2 rounded-full border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-400 font-sans text-xs font-bold uppercase tracking-widest transition-all cursor-pointer shadow-[0_0_10px_rgba(16,185,129,0.1)]"
                       >
                         Login
                       </button>
@@ -327,7 +354,7 @@ export default function App() {
                             showModal: true,
                           })
                         }
-                        className="text-blue-600 hover:text-blue-500 font-mono text-sm tracking-widest transition-colors cursor-pointer"
+                        className="px-5 py-2 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-sans text-xs font-bold uppercase tracking-widest transition-all cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.3)] hover:scale-105"
                       >
                         Register
                       </button>
@@ -363,14 +390,14 @@ export default function App() {
 
               <div className="mt-2 flex flex-col xl:flex-row w-full justify-start xl:justify-between items-start xl:items-center gap-4 overflow-hidden">
                 <div className="flex flex-col sm:flex-row items-center gap-4 w-full xl:w-auto overflow-x-auto pb-2 sm:pb-0">
-                  <div className="bg-[#0ea5e9] border border-white inline-block px-3 sm:px-6 py-1.5 sm:py-2 shrink-0">
-                    <span className="text-red-700 font-mono text-sm sm:text-lg tracking-wider font-bold capitalize truncate block">
-                      {selectedRole === "agency"
+                  <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg inline-flex items-center justify-center px-4 sm:px-6 py-1.5 sm:py-2 shrink-0 shadow-[0_0_15px_rgba(16,185,129,0.15)]">
+                    <span className="text-emerald-400 font-sans text-sm sm:text-base tracking-widest font-black uppercase truncate block">
+                      {firebaseUserRole === "agency"
                         ? "Agencies"
-                        : selectedRole === "Cohort"
+                        : firebaseUserRole === "Cohort"
                           ? "Cohorts"
-                          : selectedRole + "s"}{" "}
-                      Section
+                          : firebaseUserRole + "s"}{" "}
+                      Console
                     </span>
                   </div>
 
@@ -408,14 +435,15 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="border border-white inline-flex items-center justify-between gap-3 sm:gap-8 px-3 sm:px-6 py-1.5 sm:py-3 w-full sm:min-w-[200px] xl:w-auto overflow-hidden shrink-0 mt-2 xl:mt-0">
-                  <span className="text-white text-sm sm:text-sm font-sans tracking-wide truncate">
-                    {firebaseUser?.displayName || "Unknown User"}
+                <div className="bg-[#0f172a] border border-slate-800 rounded-xl inline-flex items-center justify-between gap-3 sm:gap-6 px-3 sm:px-4 py-1.5 sm:py-2.5 w-full sm:min-w-[200px] xl:w-auto overflow-hidden shrink-0 mt-2 xl:mt-0 shadow-lg">
+                  <span className="text-white text-sm sm:text-sm font-sans tracking-wide truncate flex flex-col">
+                    <span className="font-semibold">{firebaseUserName || "Guest User"}</span>
+                    <span className="text-[9px] text-emerald-400 font-bold uppercase tracking-widest mt-0.5">{firebaseUserRole.replace('_', ' ')} Profile</span>
                   </span>
                   <img
                     src={displayedAvatar}
                     alt="Avatar"
-                    className="w-8 h-8 rounded-full border border-white/50 cursor-pointer hover:opacity-80 transition object-cover"
+                    className="w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 border-emerald-500/50 cursor-pointer hover:border-emerald-400 hover:scale-105 transition-all object-cover shadow-[0_0_10px_rgba(16,185,129,0.3)]"
                     onClick={handleAvatarChange}
                     title="Click to change avatar"
                   />
@@ -429,8 +457,8 @@ export default function App() {
             roommates={roommates}
             currentUser={{
               ...CURRENT_USER,
-              role: selectedRole as any,
-              name: firebaseUser?.displayName || CURRENT_USER.name,
+              role: firebaseUserRole as any,
+              name: firebaseUserName || CURRENT_USER.name,
               avatar: displayedAvatar,
               uid: firebaseUser?.uid || CURRENT_USER.uid,
             }}

@@ -40,6 +40,10 @@ import {
   ChevronRight,
   Share2,
   HelpCircle,
+  MoreVertical,
+  MessageSquare,
+  History,
+  Flag,
 } from "lucide-react";
 import {
   Property,
@@ -167,6 +171,9 @@ export default function AdminConsole({
   const [hoveredChartIndex, setHoveredChartIndex] = useState<number | null>(
     null,
   );
+
+  // Tenant/Roommate context menu state
+  const [activeTenantMenuId, setActiveTenantMenuId] = useState<string | null>(null);
 
   // Initialize Roommate Selector dropdowns
   React.useEffect(() => {
@@ -717,7 +724,7 @@ export default function AdminConsole({
           },
           {
             id: "roommates",
-            label: "Roommate Hub",
+            label: "Tenants Section",
             icon: Users,
             color: "text-pink-400",
           },
@@ -1952,13 +1959,60 @@ export default function AdminConsole({
                         : "border-white/5"
                     }`}
                   >
-                    {rom.partnerFound && (
-                      <span className="absolute top-2 right-2 px-2.5 py-0.5 bg-emerald-500/10 text-emerald-400 font-bold text-[8px] rounded-full font-mono uppercase tracking-widest border border-emerald-500/20">
-                        MATCHED
-                      </span>
-                    )}
+                    <div className="absolute top-2 right-2 flex items-center gap-2">
+                      {rom.partnerFound && (
+                        <span className="px-2.5 py-0.5 bg-emerald-500/10 text-emerald-400 font-bold text-[8px] rounded-full font-mono uppercase tracking-widest border border-emerald-500/20">
+                          MATCHED
+                        </span>
+                      )}
+                      
+                      <div className="relative">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveTenantMenuId(activeTenantMenuId === rom.uid ? null : rom.uid);
+                          }}
+                          className="p-1 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors cursor-pointer"
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </button>
 
-                    <div className="flex items-start gap-3">
+                        {activeTenantMenuId === rom.uid && (
+                          <>
+                            <div 
+                              className="fixed inset-0 z-40"
+                              onClick={() => setActiveTenantMenuId(null)}
+                            />
+                            <div className="absolute right-0 top-full mt-1 w-40 bg-slate-900 border border-white/10 rounded-xl shadow-2xl py-1 z-50 overflow-hidden animate-fade-in origin-top-right">
+                              <button 
+                                onClick={() => setActiveTenantMenuId(null)}
+                                className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white flex items-center gap-2 cursor-pointer transition-colors"
+                              >
+                                <MessageSquare className="w-3.5 h-3.5" />
+                                Send Message
+                              </button>
+                              <button 
+                                onClick={() => setActiveTenantMenuId(null)}
+                                className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white flex items-center gap-2 cursor-pointer transition-colors"
+                              >
+                                <History className="w-3.5 h-3.5" />
+                                View History
+                              </button>
+                              <div className="h-px bg-white/5 my-1 mx-2" />
+                              <button 
+                                onClick={() => setActiveTenantMenuId(null)}
+                                className="w-full text-left px-3 py-2 text-xs font-bold text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 cursor-pointer transition-colors"
+                              >
+                                <Flag className="w-3.5 h-3.5" />
+                                Flag Account
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-3 mt-4">
                       <img
                         src={rom.avatar}
                         className="w-11 h-11 rounded-full object-cover border border-white/10 shrink-0"

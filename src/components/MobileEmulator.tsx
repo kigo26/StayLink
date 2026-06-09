@@ -421,6 +421,13 @@ export default function MobileEmulator({
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [faceScanningState, setFaceScanningState] = useState<'idle' | 'seeking' | 'analyzing' | 'done'>('idle');
 
+  // Document Scan State
+  const docVideoRef = useRef<HTMLVideoElement | null>(null);
+  const docCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [docCameraStream, setDocCameraStream] = useState<MediaStream | null>(null);
+  const [docScanningState, setDocScanningState] = useState<'idle' | 'seeking' | 'analyzing' | 'done'>('idle');
+  const [capturedDocImage, setCapturedDocImage] = useState<string | null>(null);
+
   // TikTok feed state
   const [tiktokIndex, setTiktokIndex] = useState(0);
   const [isPlayingVideo, setIsPlayingVideo] = useState(true);
@@ -607,6 +614,63 @@ export default function MobileEmulator({
           verificationBadges: updatedBadges
         }));
       }, 3500);
+    }
+  };
+
+  const startDocScan = async () => {
+    setDocScanningState('seeking');
+    setCapturedDocImage(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      setDocCameraStream(stream);
+      if (docVideoRef.current) {
+        docVideoRef.current.srcObject = stream;
+      }
+      setDocScanningState('analyzing');
+    } catch (err) {
+      console.warn('Camera for doc scan failed or blocked:', err);
+      // fallback simulation
+      setDocScanningState('analyzing');
+      setTimeout(() => {
+        setCapturedDocImage('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVQYV2NgYAAAAAMAAWgmWQ0AAAAASUVORK5CYII=');
+        setDocScanningState('done');
+        const updatedBadges = [...userProfile.verificationBadges];
+        if (!updatedBadges.includes('lease_verified')) {
+          updatedBadges.push('lease_verified');
+        }
+        setUserProfile(prev => ({
+          ...prev,
+          verificationBadges: updatedBadges
+        }));
+      }, 2500);
+    }
+  };
+
+  const captureDocument = () => {
+    if (docVideoRef.current && docCanvasRef.current) {
+      const video = docVideoRef.current;
+      const canvas = docCanvasRef.current;
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      const context = canvas.getContext('2d');
+      if (context) {
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/png');
+        setCapturedDocImage(dataUrl);
+      }
+      
+      docCameraStream?.getTracks().forEach(track => track.stop());
+      setDocCameraStream(null);
+      setDocScanningState('done');
+
+      const updatedBadges = [...userProfile.verificationBadges];
+      if (!updatedBadges.includes('lease_verified')) {
+        updatedBadges.push('lease_verified');
+      }
+      setUserProfile(prev => ({
+        ...prev,
+        verificationBadges: updatedBadges
+      }));
     }
   };
 
@@ -1505,6 +1569,101 @@ export default function MobileEmulator({
                   className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-neutral-800 disabled:text-neutral-500 active:scale-98 transition rounded-2xl text-sm font-semibold flex items-center justify-center gap-2 cursor-pointer"
                 >
                   Check In Secure Portal
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* DOCUMENT SCANNER SCREEN */}
+          {activeScreen === 'document_scan' && (
+            <motion.div 
+              key="doc_scan"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex-1 flex flex-col bg-neutral-950 text-white p-6 justify-between"
+            >
+              <div className="flex justify-between items-center top-2">
+                <button 
+                  onClick={() => {
+                    docCameraStream?.getTracks().forEach(track => track.stop());
+                    setDocScanningState('idle');
+                    setActiveScreen('profile');
+                  }} 
+                  className="p-2 text-neutral-400 bg-neutral-900 rounded-full cursor-pointer"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <span className="text-xs text-neutral-400 uppercase tracking-widest font-mono">Lease Scanner</span>
+                <span className="w-8"></span>
+              </div>
+
+              <div className="flex-1 flex flex-col items-center justify-center text-center">
+                <h2 className="text-lg font-semibold">Verify Lease Agreement</h2>
+                <p className="text-xs text-neutral-400 max-w-[280px] mt-1">
+                  Position your lease document in the frame to capture and extract information using our optical character recognition engine.
+                </p>
+
+                {/* Document Scan Frame */}
+                <div className="relative w-64 h-80 border-2 border-dashed border-emerald-500/40 mt-8 overflow-hidden bg-neutral-900 rounded-lg">
+                  {docScanningState === 'idle' && (
+                    <button 
+                      onClick={startDocScan}
+                      className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer bg-neutral-900 hover:bg-neutral-800 transition"
+                    >
+                      <div className="p-5 bg-gradient-to-tr from-emerald-600 to-emerald-400 rounded-full shadow-lg flex flex-col items-center">
+                        <ImageIcon className="w-8 h-8 text-white" />
+                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider mt-3">Start Camera</span>
+                    </button>
+                  )}
+
+                  {docScanningState === 'seeking' && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-xs text-neutral-400">Booting cameras...</div>
+                  )}
+
+                  {docScanningState === 'analyzing' && capturedDocImage === null && (
+                    <div className="absolute inset-0 w-full h-full">
+                      <video ref={docVideoRef} autoPlay playsInline className="w-full h-full object-cover"></video>
+                      <div className="absolute inset-0 border-[3px] border-emerald-500/80 rounded-lg pointer-events-none"></div>
+                      <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
+                        <button 
+                          onClick={captureDocument}
+                          className="w-12 h-12 bg-white rounded-full border-4 border-emerald-500 shadow-xl cursor-pointer hover:bg-neutral-200 transition"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {docScanningState === 'done' && capturedDocImage && (
+                    <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center bg-black/60">
+                      <img src={capturedDocImage} alt="Scanned document" className="w-full h-full object-contain mb-2 opacity-60" />
+                      <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
+                        <CheckCircle2 className="w-16 h-16 text-emerald-500 animate-bounce" />
+                        <span className="text-xs font-semibold text-emerald-400 uppercase tracking-widest mt-2 bg-black/60 px-2 py-1 rounded">Document Extracted</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Hidden Canvas for capturing frames */}
+                  <canvas ref={docCanvasRef} className="hidden" />
+                </div>
+
+                <p className="text-[10px] uppercase font-mono tracking-widest text-[#10b981] mt-6">
+                  {docScanningState === 'analyzing' ? 'Align document edges within the frame' : 'Optical Recognition Ready'}
+                </p>
+              </div>
+
+              <div className="w-full flex flex-col gap-2">
+                <button 
+                  disabled={docScanningState !== 'done'}
+                  onClick={() => {
+                    setDocScanningState('idle');
+                    setActiveScreen('profile');
+                  }}
+                  className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-neutral-800 disabled:text-neutral-500 active:scale-98 transition rounded-2xl text-sm font-semibold flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  Confirm & Upload Verification
                 </button>
               </div>
             </motion.div>
@@ -3160,6 +3319,21 @@ export default function MobileEmulator({
                         className="text-[10px] bg-blue-100 hover:bg-blue-200 text-blue-700 py-1 px-3 rounded-full font-black uppercase transition"
                       >
                         Start Scan
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between text-xs font-semibold py-1 border-b border-neutral-100 flex-wrap">
+                    <span className="text-neutral-500">Lease Agreement Document</span>
+                    {userProfile.verificationBadges.includes('lease_verified') ? (
+                      <span className="text-emerald-600 font-bold flex items-center gap-1">✔ Verified</span>
+                    ) : (
+                      <button 
+                        onClick={() => {
+                          setActiveScreen('document_scan');
+                        }}
+                        className="text-[10px] bg-emerald-100 hover:bg-emerald-200 text-emerald-700 py-1 px-3 rounded-full font-black uppercase transition cursor-pointer"
+                      >
+                        Scan Document
                       </button>
                     )}
                   </div>

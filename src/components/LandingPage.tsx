@@ -374,18 +374,14 @@ export default function LandingPage({
                           confirmationResult;
 
                         setAuthStep('verify');
-                      } catch (err: any) {
-                        console.warn(err);
-                        if (err.code === 'auth/operation-not-allowed') {
-                          console.warn("Phone auth not enabled in Firebase. Bypassing OTP step for preview.");
-                          setVerificationCode('123456');
-                          setExpectedCode('123456');
-                          setAuthStep('verify');
-                        } else if (err.code === 'auth/unauthorized-domain') {
-                          setAuthError('This domain is not authorized for phone auth. Add it in Firebase Console > Authentication > Settings > Authorized domains.');
-                        } else {
-                          setAuthError(err.message || 'Error sending OTP. Make sure phone number includes country code.');
+                      } catch (err) {
+                        console.error("FULL ERROR:", err);
+
+                        if (err instanceof Error) {
+                          console.error("MESSAGE:", err.message);
                         }
+
+                        console.error("JSON:", JSON.stringify(err, null, 2));
                       }
                     } else {
                       setAuthError('Please enter a valid phone number with country code');

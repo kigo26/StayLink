@@ -419,7 +419,13 @@ export default function LandingPage({
                     className="w-full bg-[#050914] border border-white/10 py-3 px-4 rounded-xl text-sm font-bold text-white outline-none focus:border-blue-500 transition text-center tracking-[0.5em]"
                     maxLength={6}
                   />
-                  <p className="text-[10px] text-slate-500 text-center mt-2">Code sent to {emailOrPhone}</p>
+                  <p className="text-[10px] text-slate-500 text-center mt-2">
+                    {!(window as any).confirmationResult ? (
+                      <span className="text-amber-500">Demo mode active (Firebase billing not enabled). Use code 123456.</span>
+                    ) : (
+                      <span>Code sent to {emailOrPhone}</span>
+                    )}
+                  </p>
                 </div>
                 <button
                   onClick={async () => {
@@ -432,16 +438,33 @@ export default function LandingPage({
                           verifiedUser = result.user;
                         } else {
                           // Fallback if testing locally without firebase logic fully active
-                          verifiedUser = { uid: 'local_test_uid', phoneNumber: emailOrPhone };
+                          if (verificationCode === '123456') {
+                            verifiedUser = { uid: 'local_test_uid', phoneNumber: emailOrPhone };
+                          } else {
+                            throw new Error('Invalid OTP code');
+                          }
                         }
 
                         // Store or verify the user document in firestore
                         if (verifiedUser) {
-                          const { getDoc, setDoc, doc, serverTimestamp } = await import('firebase/firestore');
+                          const { getDoc, getDocFromCache, setDoc, doc, serverTimestamp } = await import('firebase/firestore');
                           const { db } = await import('../firebase');
                           
                           const userRef = doc(db, 'users', verifiedUser.uid);
-                          const userSnap = await getDoc(userRef);
+                          let userSnap;
+                          try {
+                            userSnap = await getDocFromCache(userRef);
+                          } catch (cacheError) {
+                            try {
+                              userSnap = await getDoc(userRef);
+                            } catch (error: any) {
+                              if (error.code === 'unavailable') {
+                                setAuthError('You are offline. Please check your connection.');
+                                return;
+                              }
+                              throw error;
+                            }
+                          }
 
                           if (authMode === 'register') {
                             if (!userSnap.exists()) {
@@ -467,10 +490,10 @@ export default function LandingPage({
                         onComplete(selectedRole || 'tenant');
                       } catch (err: any) {
                         console.error(err);
-                        setAuthError('Invalid OTP code. Please try again.');
+                        setAuthError('{INVALID OTP.PLEASE TRY AGAIN}');
                       }
                     } else {
-                      setAuthError('Invalid code');
+                      setAuthError('{INVALID OTP.PLEASE TRY AGAIN}');
                     }
                   }}
                   className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold shadow-lg transition flex items-center justify-center gap-3 cursor-pointer"
@@ -494,13 +517,6 @@ export default function LandingPage({
                  className="mt-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs text-center flex flex-col gap-2"
                >
                  <span><ShieldCheck className="w-4 h-4 inline mr-1 opacity-70"/>{authError}</span>
-                 <p className="text-[10px] text-slate-400">Previews might block popups. You can continue securely in emulator mode.</p>
-                 <button
-                   onClick={() => onComplete(selectedRole || 'tenant')}
-                   className="mt-1 py-1.5 px-3 bg-red-500/20 hover:bg-red-500/30 text-white rounded-lg text-[10px] font-bold transition flex items-center justify-center gap-2 uppercase tracking-wide cursor-pointer"
-                 >
-                   Continue in Emulator <ArrowRight className="w-3 h-3" />
-                 </button>
                </motion.div>
              )}
 

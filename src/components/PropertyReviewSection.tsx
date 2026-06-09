@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { Star, Send } from 'lucide-react';
 import { db, auth } from '../firebase';
-import { collection, addDoc, query, orderBy, onSnapshot, doc, updateDoc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, query, orderBy, onSnapshot, doc, updateDoc, getDoc, getDocFromCache } from 'firebase/firestore';
 import { Property, Review } from '../types';
 
 interface PropertyReviewSectionProps {
@@ -51,7 +51,12 @@ export default function PropertyReviewSection({ property }: PropertyReviewSectio
       
       // 2. Update Property Aggregate stats
       const propRef = doc(db, 'properties', property.id);
-      const propSnap = await getDoc(propRef);
+      let propSnap;
+      try {
+        propSnap = await getDocFromCache(propRef);
+      } catch (cacheError) {
+        propSnap = await getDoc(propRef);
+      }
       const currentData = propSnap.data() as Property;
       
       const newReviewsCount = (currentData.reviewsCount || 0) + 1;

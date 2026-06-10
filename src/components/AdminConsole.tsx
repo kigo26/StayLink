@@ -217,6 +217,7 @@ export default function AdminConsole({
       description: newDescr,
       price: Number(newPrice),
       location: newLocation,
+      category: 'Residential',
       coordinates: {
         lat: -1.2921 + (Math.random() - 0.5) * 0.05,
         lng: 36.8219 + (Math.random() - 0.5) * 0.05,

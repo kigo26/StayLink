@@ -64,7 +64,8 @@ export const INITIAL_PROPERTIES: Property[] = [
     commentsCount: 22,
     hasVirtualTour: true,
     verificationStatus: 'verified',
-    verifiedByAdmin: true
+    verifiedByAdmin: true,
+    category: 'Residential'
   },
   {
     id: 'prop_westlands_studio',
@@ -104,7 +105,8 @@ export const INITIAL_PROPERTIES: Property[] = [
     commentsCount: 12,
     hasVirtualTour: false,
     verificationStatus: 'verified',
-    verifiedByAdmin: true
+    verifiedByAdmin: true,
+    category: 'Residential'
   },
   {
     id: 'prop_roommate_westlands',
@@ -144,7 +146,8 @@ export const INITIAL_PROPERTIES: Property[] = [
     commentsCount: 45,
     hasVirtualTour: true,
     verificationStatus: 'verified',
-    verifiedByAdmin: true
+    verifiedByAdmin: true,
+    category: 'Residential'
   },
   {
     id: 'prop_karen_villa',
@@ -184,7 +187,8 @@ export const INITIAL_PROPERTIES: Property[] = [
     commentsCount: 19,
     hasVirtualTour: true,
     verificationStatus: 'verified',
-    verifiedByAdmin: true
+    verifiedByAdmin: true,
+    category: 'Residential'
   },
   {
     id: 'prop_mombasa_resort',
@@ -223,7 +227,8 @@ export const INITIAL_PROPERTIES: Property[] = [
     commentsCount: 33,
     hasVirtualTour: false,
     verificationStatus: 'verified',
-    verifiedByAdmin: true
+    verifiedByAdmin: true,
+    category: 'Commercial'
   },
   {
     id: 'prop_fake_scam',
@@ -261,7 +266,8 @@ export const INITIAL_PROPERTIES: Property[] = [
     commentsCount: 41,
     hasVirtualTour: false,
     verificationStatus: 'rejected',
-    verifiedByAdmin: false
+    verifiedByAdmin: false,
+    category: 'Residential'
   }
 ];
 

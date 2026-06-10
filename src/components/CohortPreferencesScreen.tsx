@@ -15,6 +15,9 @@ export default function CohortPreferencesScreen({ onBack, onSubmit, currentUser 
   const [budget, setBudget] = useState('20000');
   const [cleanliness, setCleanliness] = useState<'High' | 'Medium' | 'Low'>('Medium');
   const [sleepSchedule, setSleepSchedule] = useState<'Night Owl' | 'Early Bird' | 'Flexible'>('Flexible');
+  const [profileDescription, setProfileDescription] = useState('');
+  const [currentlyLive, setCurrentlyLive] = useState('');
+  const [housingType, setHousingType] = useState<'Rented' | 'Owned'>('Rented');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,7 +35,10 @@ export default function CohortPreferencesScreen({ onBack, onSubmit, currentUser 
       hobbies: [],
       rentPercentage: Number(rentPercentage) || 50,
       terms: terms,
-      partnerFound: false
+      partnerFound: false,
+      profileDescription,
+      currentlyLive,
+      housingType
     });
   };
 
@@ -121,6 +127,40 @@ export default function CohortPreferencesScreen({ onBack, onSubmit, currentUser 
               placeholder="E.g. Expecting 50% split on utilities, no loud music after 10 PM..."
               required
             ></textarea>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wide mb-1.5">Profile Description</label>
+            <textarea 
+              value={profileDescription}
+              onChange={e => setProfileDescription(e.target.value)}
+              className="w-full bg-white border border-neutral-300 px-4 py-3 rounded-xl text-sm font-medium text-neutral-900 focus:border-indigo-500 outline-none transition min-h-[80px]"
+              placeholder="Tell us about yourself..."
+              required
+            ></textarea>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wide mb-1.5">Currently Live</label>
+            <input 
+              value={currentlyLive}
+              onChange={e => setCurrentlyLive(e.target.value)}
+              className="w-full bg-white border border-neutral-300 px-4 py-3 rounded-xl text-sm font-medium text-neutral-900 focus:border-indigo-500 outline-none transition"
+              placeholder="E.g. Kilimani"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wide mb-1.5">Housing Type</label>
+            <select 
+              value={housingType}
+              onChange={e => setHousingType(e.target.value as 'Rented' | 'Owned')}
+              className="w-full bg-white border border-neutral-300 px-4 py-3 rounded-xl text-sm font-medium text-neutral-900 focus:border-indigo-500 outline-none transition"
+            >
+              <option value="Rented">Rented</option>
+              <option value="Owned">Owned</option>
+            </select>
           </div>
 
           <button 

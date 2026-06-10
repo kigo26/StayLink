@@ -47,6 +47,7 @@ interface EmulatorProps {
   stats: PlatformStats;
   bookings: Booking[];
   onUpdateBookings: (bookings: Booking[]) => void;
+  redirectPropertyId?: string;
 }
 
 const pageTransitions = {
@@ -305,7 +306,8 @@ export default function MobileEmulator({
   onAddBooking,
   stats,
   bookings,
-  onUpdateBookings
+  onUpdateBookings,
+  redirectPropertyId
 }: EmulatorProps) {
   // Mobile UI Navigation State
   // 'welcome' | 'face_scan' | 'explore' | 'tiktok_feed' | 'roommate' | 'details' | 'chat' | 'checkout' | 'receipt' | 'profile'
@@ -338,6 +340,16 @@ export default function MobileEmulator({
     }
     return () => clearInterval(interval);
   }, [otpTimer, otpTimerActive]);
+
+  useEffect(() => {
+    if (redirectPropertyId) {
+      const prop = properties.find(p => p.id === redirectPropertyId);
+      if (prop) {
+        setActiveProperty(prop);
+        setActiveScreen('details');
+      }
+    }
+  }, [redirectPropertyId, properties]);
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -357,6 +369,7 @@ export default function MobileEmulator({
 
   const [filteredProperties, setFilteredProperties] = useState<Property[]>(getAvailableProps(properties));
   const [selectedType, setSelectedType] = useState<string>('all');
+  const [sortOrder, setSortOrder] = useState<'newest' | 'price-low' | 'price-high'>('newest');
   const [exploreViewMode, setExploreViewMode] = useState<'grid' | 'map'>('grid');
 
   // Property Comparison states
@@ -502,6 +515,7 @@ export default function MobileEmulator({
         description: 'Spectacular brand-new Nairobi Central executive residence featuring fully fitted kitchen, superfast fiber, gym room, security guard, & instant M-Pesa.',
         price: 32000,
         location: 'Westlands, Nairobi',
+        category: 'Residential',
         coordinates: { lat: -1.2618, lng: 36.8049 },
         type: 'apartment',
         images: ['https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?q=80&w=600&auto=format&fit=crop'],
@@ -545,8 +559,17 @@ export default function MobileEmulator({
 
   // Synchronize listing changes
   useEffect(() => {
-    setFilteredProperties(getAvailableProps(properties, selectedType));
-  }, [properties, selectedType]);
+    let list = getAvailableProps(properties, selectedType);
+    if (sortOrder === 'price-low') {
+      list = [...list].sort((a, b) => a.price - b.price);
+    } else if (sortOrder === 'price-high') {
+      list = [...list].sort((a, b) => b.price - a.price);
+    } else {
+      // Newest first
+      list = [...list].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }
+    setFilteredProperties(list);
+  }, [properties, selectedType, sortOrder]);
 
   // Handle Search using server API
   const handleAISearch = async (e: React.FormEvent) => {
@@ -1767,6 +1790,19 @@ export default function MobileEmulator({
                 })}
               </div>
 
+              {/* Sort Dropdown */}
+              <div className="px-4 pb-2 bg-neutral-100">
+                <select 
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value as any)}
+                  className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-700 outline-none focus:border-blue-500 shadow-xs"
+                >
+                  <option value="newest">Newest First</option>
+                  <option value="price-low">Price (Low to High)</option>
+                  <option value="price-high">Price (High to Low)</option>
+                </select>
+              </div>
+
               {/* Main Feed Container */}
               <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
                 
@@ -2592,6 +2628,7 @@ export default function MobileEmulator({
                         description: `Perfect roommate flatting in Nairobi!`,
                         price: activePartner.budget,
                         location: 'Westlands, Nairobi',
+                        category: 'Residential',
                         coordinates: { lat: -1.2610, lng: 36.8090 },
                         type: 'roommate',
                         images: ['https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?q=80&w=600&auto=format&fit=crop'],
@@ -3360,13 +3397,30 @@ export default function MobileEmulator({
 
                 {userProfile.role === 'Cohort' && (
                   <div className="bg-gradient-to-r from-purple-100 to-indigo-50 rounded-3xl p-5 border border-purple-200 shadow-2xs flex flex-col gap-3">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-500">Cohort Preferences</span>
-                    <p className="text-xs text-neutral-600 leading-relaxed font-medium">Update your rent percentage share and terms. Once you find a match, you will be delisted automatically.</p>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-500">Cohort Profile</span>
+                    
+                    {/* Placeholder for RoommateProfile lookup - normally should be part of userProfile or a separate query */}
+                    {roommates.find(r => r.uid === userProfile.uid) ? (
+                        <>
+                            <p className="text-xs text-neutral-800 leading-relaxed font-medium">
+                                <span className="font-bold">Description: </span> {roommates.find(r => r.uid === userProfile.uid)?.profileDescription}
+                            </p>
+                            <p className="text-xs text-neutral-800">
+                                <span className="font-bold">Currently Living: </span> {roommates.find(r => r.uid === userProfile.uid)?.currentlyLive}
+                            </p>
+                            <p className="text-xs text-neutral-800">
+                                <span className="font-bold">Housing Type: </span> {roommates.find(r => r.uid === userProfile.uid)?.housingType}
+                            </p>
+                        </>
+                    ) : (
+                        <p className="text-xs text-neutral-600 leading-relaxed font-medium">Please add your roommate profile to get matched.</p>
+                    )}
+                    
                     <button 
                       onClick={() => setActiveScreen('cohort_preferences')}
                       className="w-full py-3 bg-indigo-600 text-white rounded-xl text-xs font-bold uppercase shadow-md active:scale-98 transition mt-2"
                     >
-                      Update Preferences
+                      {roommates.find(r => r.uid === userProfile.uid) ? 'Update Profile' : 'Add Profile'}
                     </button>
                   </div>
                 )}

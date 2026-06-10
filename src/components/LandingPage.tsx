@@ -57,13 +57,17 @@ const ROLES: RoleOption[] = [
 ];
 
 import { StayLinkLogo } from './StayLinkLogo';
+import { HotListings } from './HotListings';
+import { INITIAL_PROPERTIES } from '../data';
 
 export default function LandingPage({ 
   onComplete,
+  onNavigateToProperty,
   initialAuthMode = 'login',
   initialShowModal = false
 }: { 
   onComplete: (roleId: string) => void;
+  onNavigateToProperty: (propertyId: string) => void;
   initialAuthMode?: 'login' | 'register';
   initialShowModal?: boolean;
 }) {
@@ -189,8 +193,16 @@ export default function LandingPage({
       <main className="flex-1 w-full max-w-7xl mx-auto px-6 py-8 flex flex-col items-center">
         
         {/* Main Title Area */}
-        <div className="text-center max-w-3xl mb-12 flex flex-col items-center">
-          <StayLinkLogo className="w-32 h-32 mb-4 drop-shadow-[0_0_15px_rgba(14,165,233,0.3)] animate-float" />
+        <div className="text-center max-w-4xl mb-12 flex flex-col items-center">
+          <div className="flex items-center justify-center gap-6 mb-4">
+             <div className="hidden lg:block">
+                <HotListings listings={INITIAL_PROPERTIES} onPropertyClick={onNavigateToProperty} />
+             </div>
+             <StayLinkLogo className="w-32 h-32 drop-shadow-[0_0_15px_rgba(14,165,233,0.3)] animate-float" />
+             <div className="hidden lg:block">
+                <HotListings listings={INITIAL_PROPERTIES} onPropertyClick={onNavigateToProperty} />
+             </div>
+          </div>
           <h2 className="text-5xl md:text-6xl font-black text-white italic tracking-tight mb-4 flex items-center justify-center gap-2">
             STAYLINK           
             

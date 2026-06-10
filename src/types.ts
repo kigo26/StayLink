@@ -7,6 +7,7 @@
 export type UserRole = 'tenant' | 'landlord' | 'admin' | 'agency' | 'Cohort' | 'seller';
 
 export type PropertyType = 'apartment' | 'airbnb' | 'roommate' | 'sale' | 'hotel';
+export type PropertyCategory = 'Residential' | 'Commercial' | 'Industrial' | 'Agricultural';
 
 export interface UserProfile {
   uid: string;
@@ -49,6 +50,7 @@ export interface Property {
     lng: number;
   };
   type: PropertyType;
+  category: PropertyCategory;
   images: string[];
   videoUrl?: string; // YouTube style or simulated vertical video
   bedrooms: number;
@@ -90,6 +92,9 @@ export interface RoommateProfile {
   terms?: string; // Any specific terms/preferences
   partnerFound?: boolean; // If true, they are delisted
   compatibilityScore?: number; // Real-time calculation
+  profileDescription?: string;
+  currentlyLive?: string;
+  housingType?: 'Rented' | 'Owned';
 }
 
 export interface Booking {

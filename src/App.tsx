@@ -14,6 +14,7 @@ import {
 } from "./data";
 import {
   Property,
+  PropertyType,
   Message,
   ChatSession,
   Booking,
@@ -24,6 +25,8 @@ import {
 } from "./types";
 import MobileEmulator from "./components/MobileEmulator";
 import LandingPage from "./components/LandingPage";
+import { Dashboard } from "./components/Dashboard";
+import { AddPropertyModal } from "./components/AddPropertyModal";
 import {
   NotificationsContainer,
   NotificationData,
@@ -155,6 +158,7 @@ export default function App() {
     show: boolean;
     authMode?: "login" | "register";
     showModal?: boolean;
+    redirectPropertyId?: string;
   }>({ show: true });
   const [selectedRole, setSelectedRole] = useState<string>("landlord");
   const [firebaseUser, setFirebaseUser] = useState<any>(null);
@@ -162,6 +166,7 @@ export default function App() {
   const [firebaseUserRole, setFirebaseUserRole] = useState<string>("tenant");
   const [customAvatar, setCustomAvatar] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
+  const [isAddPropertyModalOpen, setIsAddPropertyModalOpen] = useState(false);
 
   // Global Search Filters
   const [globalLocation, setGlobalLocation] = useState("");
@@ -269,6 +274,11 @@ export default function App() {
     }));
   };
 
+  const handleAddProperty = (newProperty: Property) => {
+    setProperties((prev) => [...prev, newProperty]);
+    addNotification(`Property added successfully: ${newProperty.title}`, "success");
+  };
+
   const handleUpdateBookings = (newBookings: Booking[]) => {
     // Detect status changes to trigger notification
     if (newBookings.length === bookings.length) {
@@ -312,6 +322,11 @@ export default function App() {
             setSelectedRole(role);
             setFirebaseUserRole(role);
             setLandingState({ show: false });
+          }}
+          onNavigateToProperty={(id) => {
+             setSelectedRole('tenant');
+             setFirebaseUserRole('tenant');
+             setLandingState({ show: false, redirectPropertyId: id });
           }}
         />
       ) : (
@@ -400,6 +415,17 @@ export default function App() {
                     </span>
                   </div>
 
+                  <div className="flex items-center gap-2">
+                    {['landlord', 'agency', 'seller'].includes(firebaseUserRole) && (
+                        <button 
+                         onClick={() => setLandingState({...landingState, show: false})}
+                         className={`px-3 py-1 rounded-md text-xs ${!landingState.show ? 'bg-blue-600 text-white' : 'bg-white/5 text-white'}`}
+                        >
+                            Dashboard
+                        </button>
+                    )}
+                  </div>
+
                   <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap sm:flex-nowrap">
                     <input
                       type="text"
@@ -431,8 +457,25 @@ export default function App() {
                       <option value="hostel">Hostels</option>
                       <option value="roommate">Roommates</option>
                     </select>
+                    {(firebaseUserRole === 'landlord' || firebaseUserRole === 'agency' || firebaseUserRole === 'seller') && (
+                      <button
+                        onClick={() => setIsAddPropertyModalOpen(true)}
+                        className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs sm:text-sm transition-colors shrink-0"
+                      >
+                        Add Property
+                      </button>
+                    )}
                   </div>
                 </div>
+
+                <AddPropertyModal
+                  isOpen={isAddPropertyModalOpen}
+                  onClose={() => setIsAddPropertyModalOpen(false)}
+                  onAddProperty={handleAddProperty}
+                  landlordId={firebaseUser?.uid || ""}
+                  landlordName={firebaseUserName}
+                  landlordAvatar={displayedAvatar}
+                />
 
                 <div className="bg-[#0f172a] border border-slate-800 rounded-xl inline-flex items-center justify-between gap-3 sm:gap-6 px-3 sm:px-4 py-1.5 sm:py-2.5 w-full sm:min-w-[200px] xl:w-auto overflow-hidden shrink-0 mt-2 xl:mt-0 shadow-lg">
                   <span className="text-white text-sm sm:text-sm font-sans tracking-wide truncate flex flex-col">
@@ -451,31 +494,42 @@ export default function App() {
             </div>
           </header>
 
-          <MobileEmulator
-            properties={filteredGlobalProperties}
-            roommates={roommates}
-            currentUser={{
-              ...CURRENT_USER,
-              role: firebaseUserRole as any,
-              name: firebaseUserName || CURRENT_USER.name,
-              avatar: displayedAvatar,
-              uid: firebaseUser?.uid || CURRENT_USER.uid,
-            }}
-            chats={chats}
-            messagesList={messagesList}
-            bookings={bookings}
-            onUpdateBookings={handleUpdateBookings}
-            onStateUpdate={(data) => {
-              if (data.properties) setProperties(data.properties);
-              if (data.roommates) setRoommates(data.roommates);
-              if (data.chats) setChats(data.chats);
-              if (data.messagesList) setMessagesList(data.messagesList);
-            }}
-            transactions={transactions}
-            onAddTransaction={handleAddTransaction}
-            onAddBooking={handleAddBooking}
-            stats={platformStats}
-          />
+          {landingState.show ? (
+            <MobileEmulator
+              properties={filteredGlobalProperties}
+              roommates={roommates}
+              currentUser={{
+                ...CURRENT_USER,
+                role: firebaseUserRole as any,
+                name: firebaseUserName || CURRENT_USER.name,
+                avatar: displayedAvatar,
+                uid: firebaseUser?.uid || CURRENT_USER.uid,
+              }}
+              chats={chats}
+              messagesList={messagesList}
+              bookings={bookings}
+              onUpdateBookings={handleUpdateBookings}
+              onStateUpdate={(data) => {
+                if (data.properties) setProperties(data.properties);
+                if (data.roommates) setRoommates(data.roommates);
+                if (data.chats) setChats(data.chats);
+                if (data.messagesList) setMessagesList(data.messagesList);
+              }}
+              transactions={transactions}
+              onAddTransaction={handleAddTransaction}
+              onAddBooking={handleAddBooking}
+              stats={platformStats}
+              redirectPropertyId={landingState.redirectPropertyId}
+            />
+          ) : (
+            <Dashboard 
+              role={firebaseUserRole as any}
+              properties={properties}
+              bookings={bookings}
+              userId={firebaseUser?.uid || ""}
+              onAddProperty={() => setIsAddPropertyModalOpen(true)}
+            />
+          )}
         </main>
       )}
     </div>

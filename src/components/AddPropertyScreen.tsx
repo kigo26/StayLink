@@ -20,7 +20,8 @@ export default function AddPropertyScreen({ onBack, onSubmit, currentUser }: Add
   const [bedrooms, setBedrooms] = useLocalStorage('add_prop_bedrooms', '1');
   const [bathrooms, setBathrooms] = useLocalStorage('add_prop_bathrooms', '1');
   const [location, setLocation] = useLocalStorage('add_prop_location', '');
-  const [mainImage, setMainImage] = useState('');
+  const [description, setDescription] = useLocalStorage('add_prop_description', '');
+  const [mainImage, setMainImage] = useLocalStorage('add_prop_main_image', '');
   const [uploadSummary, setUploadSummary] = useState<any>(null);
 
   const handleUpload = (summary: any) => {
@@ -46,9 +47,12 @@ export default function AddPropertyScreen({ onBack, onSubmit, currentUser }: Add
     localStorage.removeItem('add_prop_bedrooms');
     localStorage.removeItem('add_prop_bathrooms');
     localStorage.removeItem('add_prop_location');
+    localStorage.removeItem('add_prop_description');
+    localStorage.removeItem('add_prop_main_image');
 
     onSubmit({
       title,
+      description,
       price: Number(price),
       type,
       location,
@@ -134,6 +138,17 @@ export default function AddPropertyScreen({ onBack, onSubmit, currentUser }: Add
               onChange={e => setTitle(e.target.value)}
               className="w-full bg-white border border-neutral-300 px-4 py-3 rounded-xl text-sm font-medium text-neutral-900 focus:border-blue-500 outline-none transition"
               placeholder="e.g. Modern Studio in Kilimani"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wide mb-1.5">Property Description</label>
+            <textarea 
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              className="w-full bg-white border border-neutral-300 px-4 py-3 rounded-xl text-sm font-medium text-neutral-900 focus:border-blue-500 outline-none transition min-h-[100px] resize-y"
+              placeholder="Describe the property, its amenities, rules, and nearby points of interest..."
               required
             />
           </div>

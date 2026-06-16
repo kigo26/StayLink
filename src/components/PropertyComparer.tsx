@@ -127,11 +127,12 @@ export default function PropertyComparer({
 
                 {/* Configurations Row */}
                 <div className="col-span-full border-t border-neutral-100 my-2"></div>
-                <span className="text-[10px] text-neutral-400 font-bold self-center">Rooms</span>
+                <span className="text-[10px] text-neutral-400 font-bold self-center">Rooms & Size</span>
                 {selectedProperties.map(prop => (
                   <div key={prop.id} className="px-2 border-l border-neutral-100 py-1 text-[10.5px] text-neutral-700 font-semibold space-y-0.5">
                     <div>🛏️ {prop.bedrooms} {prop.bedrooms === 1 ? 'Bedroom' : 'Bedrooms'}</div>
                     <div>🛁 {prop.bathrooms} {prop.bathrooms === 1 ? 'Bathroom' : 'Bathrooms'}</div>
+                    {prop.sizeSquareMeters && <div>📐 {prop.sizeSquareMeters} sqm</div>}
                   </div>
                 ))}
 

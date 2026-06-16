@@ -55,6 +55,7 @@ export interface Property {
   videoUrl?: string; // YouTube style or simulated vertical video
   bedrooms: number;
   bathrooms: number;
+  sizeSquareMeters?: number;
   amenities: string[];
   landlordId: string;
   landlordName: string;
@@ -108,7 +109,7 @@ export interface Booking {
   payoutAmount: number; // price - 10%
   commissionAmount: number; // 10%
   amountPaid: number; // Total KSh
-  status: 'pending' | 'active' | 'completed' | 'cancelled';
+  status: 'pending' | 'active' | 'completed' | 'cancelled' | 'tour_scheduled';
   checkIn: string;
   checkOut: string;
   mpesaTransactionCode?: string;

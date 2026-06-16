@@ -34,6 +34,8 @@ import {
 import { auth } from "./firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { StayLinkLogo } from "./components/StayLinkLogo";
+import { IntroAnimation } from "./components/IntroAnimation";
+import { AnimatePresence } from "motion/react";
 
 const INITIAL_BOOKINGS: Booking[] = [
   {
@@ -154,6 +156,7 @@ export default function App() {
 
   const [platformStats, setPlatformStats] =
     useState<PlatformStats>(INITIAL_STATS);
+  const [showIntro, setShowIntro] = useState(true);
   const [landingState, setLandingState] = useState<{
     show: boolean;
     authMode?: "login" | "register";
@@ -310,6 +313,9 @@ export default function App() {
 
   return (
     <div className="relative w-screen h-screen bg-neutral-900 text-white overflow-hidden flex flex-col selection:bg-blue-600 selection:text-white">
+      <AnimatePresence>
+        {showIntro && <IntroAnimation onComplete={() => setShowIntro(false)} />}
+      </AnimatePresence>
       <NotificationsContainer
         notifications={notifications}
         onClose={removeNotification}

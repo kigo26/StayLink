@@ -151,12 +151,12 @@ export default function LandingPage({
     <div className="min-h-screen bg-[#030712] text-slate-300 font-sans flex flex-col relative w-full overflow-y-auto">
       {/* Background Image */}
       <img 
-        src="https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1600&q=80"
+        src="/images/land-009.jpg"
         alt=""
         fetchPriority="high"
-        className="absolute inset-0 w-full h-full object-cover z-0 opacity-30 blur-sm pointer-events-none" 
+        className="fixed inset-0 w-full h-full object-cover z-0 opacity-30 blur-[2px] pointer-events-none" 
       />
-      <div className="absolute inset-0 z-0 bg-[#030712]/70 pointer-events-none"></div>
+      <div className="fixed inset-0 z-0 bg-[#030712]/70 pointer-events-none"></div>
       
       <header className="w-full max-w-7xl mx-auto px-4 pt-4 pb-2 z-50">
         <div className="bg-[#050914] border border-blue-900/30 rounded-[28px] overflow-hidden shadow-2xl relative">
@@ -207,16 +207,19 @@ export default function LandingPage({
             STAYLINK           
             
           </h2>
-          <marquee>
-          <h3 className="text-blue-400 font-bold tracking-[0.2em] text-sm md:text-base uppercase mb-4 drop-shadow-md">
+          <motion.h3 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="text-blue-400 font-bold tracking-[0.2em] text-sm md:text-base uppercase mb-4 drop-shadow-md text-center"
+          >
             ...Every Place... Every Person... One Connection...
-          </h3>
-          </marquee>
+          </motion.h3>
 
           <p className="text-slate-400 text-sm max-w-2xl mx-auto leading-relaxed">
             <span className="text-blue-400 font-medium">
             <i> Rent. Buy. Sell. Share. Stay.</i>
-            </span>.
+            </span>
           </p>
 
           {/* Verification Badges Row */}

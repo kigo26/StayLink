@@ -11,9 +11,9 @@ import {
   Video, Check, AlertTriangle, Menu, Send, Mic, BadgePercent, Lock, 
   Award, QrCode, Globe, CheckCircle2, RotateCcw, Flame, Bus, LogOut,
   Smartphone, ShieldCheck, RefreshCw, Plus, Image as ImageIcon, Camera,
-  Mail, Map, List, Star, ChevronRight
+  Mail, Map, List, Star, ChevronRight, Bookmark, Calendar, X
 } from 'lucide-react';
-import { Property, RoommateProfile, UserProfile, Message, ChatSession, Booking, Transaction, PlatformStats } from '../types';
+import { Property, RoommateProfile, UserProfile, Message, ChatSession, Booking, Transaction, PlatformStats, Review } from '../types';
 import AdminConsole from './AdminConsole';
 import MapTracker from './MapTracker';
 import AddPropertyScreen from './AddPropertyScreen';
@@ -22,8 +22,13 @@ import ExploreInlineMap from './ExploreInlineMap';
 import PropertyComparer from './PropertyComparer';
 import PropertyReviewSection from './PropertyReviewSection';
 import VirtualTourOverlay from './VirtualTourOverlay';
+import RoommateQuestionnaire from './RoommateQuestionnaire';
+import TenantVerificationScreen from './TenantVerificationScreen';
+import { AIRentEstimator } from './AIRentEstimator';
 import { ErrorBoundary } from './ErrorBoundary';
 import { useSystemRecovery } from '../hooks/useSystemRecovery';
+import { useExchangeRate } from '../hooks/useExchangeRate';
+import confetti from 'canvas-confetti';
 import { db, auth } from '../firebase';
 import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
@@ -232,7 +237,7 @@ function PropertyImageCarousel({ images, qualityScore }: { images: string[], qua
       >
         {images.map((img, idx) => (
           <div key={idx} className="h-full min-w-full flex-shrink-0 snap-center relative">
-            <img src={img} className="w-full h-full object-cover" />
+            <img src={img} className="w-full h-full object-cover" loading="lazy" />
           </div>
         ))}
       </div>
@@ -316,6 +321,16 @@ export default function MobileEmulator({
   const [userProfile, setUserProfile] = useState<UserProfile>(currentUser);
   const [selectedRoleId, setSelectedRoleId] = useState<string>('tenant');
 
+  // Reviews Data Helper
+  const getPropertyReviewsInfo = (propertyId: string) => {
+    // reviews is captured from component scope
+    const propReviews = reviews.filter(r => r.propertyId === propertyId);
+    const averageRating = propReviews.length > 0 
+      ? propReviews.reduce((sum, r) => sum + r.rating, 0) / propReviews.length 
+      : 0;
+    return { propReviews, averageRating };
+  };
+
   // OTP Auth States
   const [authTab, setAuthTab] = useState<'register' | 'otp_login'>('register');
   const [loginMethod, setLoginMethod] = useState<'phone' | 'email'>('phone');
@@ -352,6 +367,16 @@ export default function MobileEmulator({
   }, [redirectPropertyId, properties]);
   
   // Search state
+  const [isDataLoading, setIsDataLoading] = useState(true);
+
+  useEffect(() => {
+    // Simulate initial data loading fetch mapping
+    const timer = setTimeout(() => {
+      setIsDataLoading(false);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, []);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [aiSearchRapport, setAiSearchRapport] = useState('');
@@ -370,11 +395,27 @@ export default function MobileEmulator({
   const [filteredProperties, setFilteredProperties] = useState<Property[]>(getAvailableProps(properties));
   const [selectedType, setSelectedType] = useState<string>('all');
   const [sortOrder, setSortOrder] = useState<'newest' | 'price-low' | 'price-high'>('newest');
+  
+  const [displayCurrency, setDisplayCurrency] = useState<'KSh' | 'USD'>('KSh');
+  const { exchangeRate } = useExchangeRate();
   const [exploreViewMode, setExploreViewMode] = useState<'grid' | 'map'>('grid');
+  
+  const AMENITY_OPTIONS = ['WiFi', 'Parking', 'Security', 'Gym', 'Pool', 'Balcony'];
+  const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
+
+  // Affordability Calculator State
+  const [monthlyIncome, setMonthlyIncome] = useState<string>('');
+  const [isAffordabilityFilterActive, setIsAffordabilityFilterActive] = useState(false);
+  const [showAffordabilityModal, setShowAffordabilityModal] = useState(false);
+
+  // Saved Properties state
+  const [savedProperties, setSavedProperties] = useState<string[]>([]);
+  const [showSavedOnly, setShowSavedOnly] = useState<boolean>(false);
 
   // Property Comparison states
   const [comparedProperties, setComparedProperties] = useState<Property[]>([]);
   const [isComparisonOpen, setIsComparisonOpen] = useState(false);
+  const [isQuestionnaireOpen, setIsQuestionnaireOpen] = useState(false);
   const [isVirtualTourOpen, setIsVirtualTourOpen] = useState(false);
 
   const handleToggleCompare = (property: Property, e: React.MouseEvent) => {
@@ -426,12 +467,44 @@ export default function MobileEmulator({
   const [isTyping, setIsTyping] = useState(false);
   const [simulatedRecording, setSimulatedRecording] = useState(false);
 
+  // Reviews State
+  const [reviews, setReviews] = useState<Review[]>([
+    {
+      id: "rev_1",
+      propertyId: "prop_kilimani_luxury",
+      tenantId: "t1",
+      tenantName: "Alice W.",
+      tenantAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=150&auto=format&fit=crop",
+      rating: 5,
+      comment: "Absolutely amazing view and the host was very responsive. Highly recommend!",
+      timestamp: new Date().toISOString()
+    },
+    {
+      id: "rev_2",
+      propertyId: "prop_kilimani_luxury",
+      tenantId: "t2",
+      tenantName: "David K.",
+      tenantAvatar: "https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=150&auto=format&fit=crop",
+      rating: 4,
+      comment: "Great location and clean. A bit noisy on weekends due to traffic.",
+      timestamp: new Date().toISOString()
+    }
+  ]);
+  const [isReviewing, setIsReviewing] = useState(false);
+  const [newReviewRating, setNewReviewRating] = useState(5);
+  const [newReviewComment, setNewReviewComment] = useState('');
+
   // Checkout and Fintech M-Pesa state
   const [stkPushActive, setStkPushActive] = useState(false);
   const [stkPin, setStkPin] = useState('');
   const [stkPushError, setStkPushError] = useState('');
   const [createdBooking, setCreatedBooking] = useState<Booking | null>(null);
   const [isPaying, setIsPaying] = useState(false);
+
+  // Tour Scheduling state
+  const [isSchedulingTour, setIsSchedulingTour] = useState(false);
+  const [tourDate, setTourDate] = useState<string>('');
+  const [tourTime, setTourTime] = useState<string>('10:00');
 
   // Gamification state
   const [streakSaved, setStreakSaved] = useState(false);
@@ -557,25 +630,45 @@ export default function MobileEmulator({
     }
   };
 
-  // Synchronize listing changes
-  useEffect(() => {
-    let list = getAvailableProps(properties, selectedType);
+  const applyFiltersAndSort = (baseProps: Property[]) => {
+    let list = baseProps;
+    if (showSavedOnly) {
+      list = list.filter(p => savedProperties.includes(p.id));
+    }
+    if (isAffordabilityFilterActive && monthlyIncome) {
+      const income = parseFloat(monthlyIncome);
+      if (!isNaN(income) && income > 0) {
+        const maxAffordableRent = income * 0.3; // standard 30% rule
+        list = list.filter(p => p.price <= maxAffordableRent);
+      }
+    }
+    if (selectedAmenities.length > 0) {
+      list = list.filter(p => 
+        selectedAmenities.every(selectedAm => 
+          p.amenities?.some(propAm => propAm.toLowerCase().includes(selectedAm.toLowerCase()))
+        )
+      );
+    }
     if (sortOrder === 'price-low') {
       list = [...list].sort((a, b) => a.price - b.price);
     } else if (sortOrder === 'price-high') {
       list = [...list].sort((a, b) => b.price - a.price);
     } else {
-      // Newest first
       list = [...list].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }
-    setFilteredProperties(list);
-  }, [properties, selectedType, sortOrder]);
+    return list;
+  };
+
+  // Synchronize listing changes
+  useEffect(() => {
+    setFilteredProperties(applyFiltersAndSort(getAvailableProps(properties, selectedType)));
+  }, [properties, selectedType, sortOrder, selectedAmenities, savedProperties, showSavedOnly, isAffordabilityFilterActive, monthlyIncome]);
 
   // Handle Search using server API
   const handleAISearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim()) {
-      setFilteredProperties(getAvailableProps(properties, selectedType));
+      setFilteredProperties(applyFiltersAndSort(getAvailableProps(properties, selectedType)));
       setAiSearchRapport('');
       return;
     }
@@ -589,7 +682,7 @@ export default function MobileEmulator({
       });
       const data = await response.json();
       if (data.success) {
-        setFilteredProperties(getAvailableProps(data.results, selectedType));
+        setFilteredProperties(applyFiltersAndSort(getAvailableProps(data.results, selectedType)));
         setAiSearchRapport(data.aiResponse);
       }
     } catch (err) {
@@ -1007,6 +1100,14 @@ export default function MobileEmulator({
       setStkPushActive(false);
       setIsPaying(false);
       setActiveScreen('receipt');
+
+      // Trigger Celebration Confetti 
+      confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#3b82f6', '#10b981', '#f59e0b', '#ec4899']
+      });
     }, 2500);
   };
 
@@ -1790,8 +1891,8 @@ export default function MobileEmulator({
                 })}
               </div>
 
-              {/* Sort Dropdown */}
-              <div className="px-4 pb-2 bg-neutral-100">
+              {/* Sort Dropdown & Amenities */}
+              <div className="px-4 pb-2 bg-neutral-100 flex flex-col gap-2">
                 <select 
                   value={sortOrder}
                   onChange={(e) => setSortOrder(e.target.value as any)}
@@ -1801,6 +1902,44 @@ export default function MobileEmulator({
                   <option value="price-low">Price (Low to High)</option>
                   <option value="price-high">Price (High to Low)</option>
                 </select>
+
+                <div className="flex gap-2 w-full">
+                  <button 
+                    onClick={() => setShowAffordabilityModal(true)}
+                    className={`flex-1 py-2 px-3 rounded-xl border flex items-center justify-center gap-1.5 text-[11px] font-bold transition shadow-xs ${
+                      isAffordabilityFilterActive 
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-700' 
+                        : 'bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50'
+                    }`}
+                  >
+                    <Wallet className="w-3.5 h-3.5" />
+                    {isAffordabilityFilterActive ? `Budget: ≤ ${displayCurrency} ${(parseFloat(monthlyIncome)*0.3).toLocaleString()}` : "Rent Affordability Calculator"}
+                  </button>
+                </div>
+
+                {/* Amenities Filter Banner Scroller */}
+                <div className="flex gap-2 overflow-x-auto scrollbar-none no-scrollbar pb-1">
+                  {AMENITY_OPTIONS.map(amenity => {
+                    const isSelected = selectedAmenities.includes(amenity);
+                    return (
+                      <button
+                        key={amenity}
+                        onClick={() => {
+                          setSelectedAmenities(prev => 
+                            prev.includes(amenity) ? prev.filter(a => a !== amenity) : [...prev, amenity]
+                          );
+                        }}
+                        className={`flex items-center px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap transition cursor-pointer border ${
+                          isSelected 
+                            ? 'bg-blue-50 border-blue-200 text-blue-700 shadow-xs' 
+                            : 'bg-white border-neutral-200 text-neutral-500 hover:bg-neutral-50'
+                        }`}
+                      >
+                        {amenity}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Main Feed Container */}
@@ -1921,6 +2060,17 @@ export default function MobileEmulator({
                       <Map className="w-3.5 h-3.5" /> MAP VIEW
                     </motion.button>
 
+                    <button
+                      onClick={() => setShowSavedOnly(!showSavedOnly)}
+                      className={`flex items-center gap-1.5 px-3 py-[7px] font-extrabold text-[10px] rounded-xl transition uppercase tracking-wider cursor-pointer border-none whitespace-nowrap shrink-0 ${
+                        showSavedOnly 
+                          ? 'bg-pink-600 text-white shadow-xs' 
+                          : 'bg-pink-50 text-pink-600 hover:bg-pink-100'
+                      }`}
+                    >
+                      <Bookmark className={`w-3.5 h-3.5 ${showSavedOnly ? 'fill-current text-white' : ''}`} /> SAVED
+                    </button>
+
                     <div className="flex-1 min-w-[8px]" />
 
                     <button
@@ -1932,13 +2082,34 @@ export default function MobileEmulator({
                   </div>
                 </div>
 
-                {filteredProperties.length === 0 ? (
+                {(isDataLoading || isSearching) ? (
+                  <div className="space-y-4">
+                    {[1, 2, 3].map((skeleton) => (
+                      <div key={skeleton} className="bg-white rounded-3xl shadow-sm border border-neutral-100 overflow-hidden">
+                        <div className="w-full h-56 bg-neutral-200 animate-pulse"></div>
+                        <div className="p-4 space-y-3">
+                          <div className="flex justify-between items-center">
+                            <div className="h-3 w-1/4 bg-neutral-200 animate-pulse rounded-full"></div>
+                            <div className="h-3 w-1/4 bg-neutral-200 animate-pulse rounded-full"></div>
+                          </div>
+                          <div className="h-4 w-3/4 bg-neutral-200 animate-pulse rounded-lg"></div>
+                          <div className="h-3 w-1/2 bg-neutral-200 animate-pulse rounded-full"></div>
+                          <div className="flex gap-2 pt-2">
+                            <div className="h-8 w-8 bg-neutral-200 animate-pulse rounded-full"></div>
+                            <div className="flex-1 h-8 bg-neutral-200 animate-pulse rounded-xl"></div>
+                            <div className="h-8 w-1/3 bg-neutral-200 animate-pulse rounded-xl"></div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : filteredProperties.length === 0 ? (
                   <div className="p-8 text-center bg-white border border-neutral-200 rounded-2.5xl flex flex-col items-center">
                     <AlertTriangle className="w-8 h-8 text-amber-500 mb-2" />
                     <p className="text-xs text-neutral-600 font-medium">Hapana! No listings matched your exact search filters.</p>
                     <button 
                       onClick={() => {
-                        setFilteredProperties(getAvailableProps(properties, selectedType));
+                        setSelectedAmenities([]);
                         setSearchQuery('');
                         setAiSearchRapport('');
                       }} 
@@ -2008,6 +2179,7 @@ export default function MobileEmulator({
                         <img 
                           src={prop.images[0]} 
                           className="w-full h-full object-cover group-hover:scale-105 transition duration-500" 
+                          loading="lazy"
                         />
                         {(prop.verifiedByAdmin || prop.verificationStatus === 'verified') && (
                           <div className="absolute top-3 left-3 px-2.5 py-1 bg-emerald-600/95 backdrop-blur-xs text-white rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 border border-emerald-500/20 shadow-xs">
@@ -2015,39 +2187,70 @@ export default function MobileEmulator({
                             Verified Host
                           </div>
                         )}
-                        {prop.isPromoted && (
-                          <div className="absolute top-3 right-3 px-2.5 py-1 bg-amber-500 text-white rounded-full text-[9px] font-bold uppercase tracking-wide flex items-center gap-0.5 shadow-sm">
-                            <Sparkles className="w-3 h-3 fill-current" />
-                            Smart Pick
-                          </div>
-                        )}
+                        <div className="absolute top-3 right-3 flex flex-col gap-1.5 items-end">
+                          {prop.isPromoted && (
+                            <div className="px-2.5 py-1 bg-amber-500 text-white rounded-full text-[9px] font-bold uppercase tracking-wide flex items-center gap-0.5 shadow-sm">
+                              <Sparkles className="w-3 h-3 fill-current" />
+                              Smart Pick
+                            </div>
+                          )}
+                          {prop.averageRating && (
+                            <div className="bg-black/70 backdrop-blur-sm text-white rounded-full py-1 px-2 text-[10px] font-bold flex items-center gap-1 border border-white/10 shadow-xs">
+                              <Star className="w-3 h-3 fill-current text-amber-400" />
+                              {prop.averageRating.toFixed(1)}
+                            </div>
+                          )}
+                        </div>
+
                         <div className="absolute bottom-3 left-3 bg-white/95 text-neutral-900 rounded-full py-1 px-3 text-sm font-black shadow-xs flex items-center">
                           KSh {prop.price >= 1000000 ? `${(prop.price/1000000).toFixed(1)}M` : prop.price.toLocaleString()}
                           <span className="text-[9px] text-neutral-500 font-normal ml-0.5">/{prop.type === 'airbnb' || prop.type === 'hotel' ? 'day' : 'month'}</span>
                         </div>
-                        
-                        {prop.averageRating && (
-                          <div className="absolute top-3 right-3 bg-black/70 text-white rounded-full py-1 px-2 text-[10px] font-bold flex items-center gap-1">
-                            <Star className="w-3 h-3 fill-current text-amber-400" />
-                            {prop.averageRating.toFixed(1)}
-                          </div>
-                        )}
 
-                        {/* Compare toggle trigger */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleToggleCompare(prop, e);
-                          }}
-                          className={`absolute bottom-3 right-3 px-2.5 py-1.5 rounded-xl text-[9px] font-extrabold uppercase tracking-wider shadow-xs flex items-center gap-1 transition-all border ${
-                            comparedProperties.some(p => p.id === prop.id)
-                              ? 'bg-blue-600 border-blue-600 text-white shadow-md ring-2 ring-blue-500/10'
-                              : 'bg-white/95 border-neutral-200 text-neutral-700 hover:bg-white hover:text-neutral-900'
-                          }`}
-                        >
-                          <Compass className={`w-3 h-3 ${comparedProperties.some(p => p.id === prop.id) ? 'animate-spin' : ''}`} style={{ animationDuration: '6s' }} />
-                          {comparedProperties.some(p => p.id === prop.id) ? 'Compared' : 'Compare'}
-                        </button>
+                        <div className="absolute bottom-3 right-3 flex items-center gap-1.5">
+                          {/* 360 Tour Trigger */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveProperty(prop);
+                              setIsVirtualTourOpen(true);
+                            }}
+                            className="px-2.5 py-1.5 bg-neutral-900/80 backdrop-blur-sm text-white rounded-xl text-[9px] font-extrabold uppercase tracking-wider shadow-xs flex items-center gap-1 transition-all border border-neutral-700 hover:bg-black group-hover:-translate-y-0.5"
+                          >
+                            <Camera className="w-3 h-3" />
+                            360°
+                          </button>
+
+                          {/* Compare toggle trigger */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleCompare(prop, e);
+                            }}
+                            className={`px-2.5 py-1.5 rounded-xl text-[9px] font-extrabold uppercase tracking-wider shadow-xs flex items-center gap-1 transition-all border group-hover:-translate-y-0.5 ${
+                              comparedProperties.some(p => p.id === prop.id)
+                                ? 'bg-blue-600 border-blue-600 text-white shadow-md ring-2 ring-blue-500/10'
+                                : 'bg-white/95 border-neutral-200 text-neutral-700 hover:bg-white hover:text-neutral-900'
+                            }`}
+                          >
+                            <Compass className={`w-3 h-3 ${comparedProperties.some(p => p.id === prop.id) ? 'animate-spin' : ''}`} style={{ animationDuration: '6s' }} />
+                            {comparedProperties.some(p => p.id === prop.id) ? 'Compared' : 'Compare'}
+                          </button>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSavedProperties(prev => 
+                                prev.includes(prop.id) 
+                                  ? prev.filter(id => id !== prop.id)
+                                  : [...prev, prop.id]
+                              );
+                            }}
+                            className="p-1.5 bg-white/30 backdrop-blur-md rounded-xl shadow hover:bg-white/50 transition-colors group-hover:-translate-y-0.5"
+                          >
+                            <Bookmark className={`w-4 h-4 ${savedProperties.includes(prop.id) ? 'fill-pink-500 text-pink-500' : 'text-white'}`} />
+                          </button>
+                        </div>
                       </div>
 
                       {/* Content details */}
@@ -2103,7 +2306,7 @@ export default function MobileEmulator({
                         {/* Compatibility indicator match */}
                         <div className="mt-3.5 w-full bg-indigo-50 hover:bg-indigo-100 py-1.5 px-3 rounded-full text-[10px] font-bold text-indigo-700 transition flex items-center justify-center gap-1 uppercase tracking-wider">
                           <BadgePercent className="w-3.5 h-3.5" />
-                          Match Score
+                          Match Score: {seeker.compatibilityScore || 0}%
                         </div>
                       </div>
                     ))}
@@ -2138,6 +2341,7 @@ export default function MobileEmulator({
                             <img
                               src={p.images[0]}
                               className="w-10 h-10 rounded-xl border-2 border-neutral-900 object-cover shadow-md transition group-hover:scale-105"
+                              loading="lazy"
                             />
                             <button
                               onClick={(e) => {
@@ -2205,6 +2409,80 @@ export default function MobileEmulator({
                     property={activeProperty}
                     onClose={() => setIsVirtualTourOpen(false)}
                   />
+                )}
+
+                {/* Affordability Calculator Modal */}
+                {showAffordabilityModal && (
+                  <div className="absolute inset-0 bg-black/60 z-50 flex items-end justify-center backdrop-blur-sm">
+                    <motion.div 
+                      initial={{ y: "100%" }}
+                      animate={{ y: 0 }}
+                      exit={{ y: "100%" }}
+                      transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                      className="bg-white rounded-t-3xl w-full max-w-sm overflow-hidden flex flex-col p-6 pb-12 relative border-t border-neutral-200 shadow-2xl"
+                    >
+                      <button 
+                        onClick={() => setShowAffordabilityModal(false)} 
+                        className="absolute top-5 right-5 p-2 bg-neutral-100 rounded-full text-neutral-500 hover:bg-neutral-200 transition"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Wallet className="w-5 h-5 text-emerald-600" />
+                        <h3 className="text-lg font-black text-neutral-900">Rent Calculator</h3>
+                      </div>
+                      <p className="text-[11px] text-neutral-500 mb-6 font-medium leading-relaxed max-w-[85%]">
+                        Enter your monthly income to filter properties that cost ≤ 30% of your earnings.
+                      </p>
+                      
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1.5 block">Monthly Income ({displayCurrency})</label>
+                          <input 
+                            type="number" 
+                            value={monthlyIncome}
+                            onChange={(e) => setMonthlyIncome(e.target.value)}
+                            placeholder="e.g. 100000"
+                            className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 text-sm font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition"
+                          />
+                        </div>
+
+                        {monthlyIncome && !isNaN(parseFloat(monthlyIncome)) && (
+                          <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-100">
+                            <p className="text-[10px] uppercase font-bold text-emerald-600 tracking-wider mb-1">Recommended Max Rent</p>
+                            <p className="text-xl font-black text-emerald-700">
+                              {displayCurrency} {(parseFloat(monthlyIncome) * 0.3).toLocaleString()} <span className="text-xs font-semibold text-emerald-600/70">/ mo</span>
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="flex gap-2 pt-2">
+                          {isAffordabilityFilterActive && (
+                            <button
+                              onClick={() => {
+                                setIsAffordabilityFilterActive(false);
+                                setMonthlyIncome('');
+                                setShowAffordabilityModal(false);
+                              }}
+                              className="px-4 py-4 bg-neutral-100 text-neutral-600 font-bold text-xs rounded-xl hover:bg-neutral-200 transition"
+                            >
+                              Clear
+                            </button>
+                          )}
+                          <button
+                            disabled={!monthlyIncome || isNaN(parseFloat(monthlyIncome))}
+                            onClick={() => {
+                              setIsAffordabilityFilterActive(true);
+                              setShowAffordabilityModal(false);
+                            }}
+                            className="flex-1 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 disabled:from-neutral-300 disabled:to-neutral-300 disabled:text-neutral-500 text-white font-black text-xs rounded-xl tracking-wide active:scale-98 transition shadow-md flex items-center justify-center gap-2"
+                          >
+                            Apply Filter
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  </div>
                 )}
               </AnimatePresence>
 
@@ -2379,7 +2657,7 @@ export default function MobileEmulator({
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <img src={properties[tiktokIndex]?.images[0]} className="w-full h-full object-cover" />
+                    <img src={properties[tiktokIndex]?.images[0]} className="w-full h-full object-cover" loading="lazy" />
                   )}
 
                   {!isPlayingVideo && (
@@ -2398,7 +2676,7 @@ export default function MobileEmulator({
                             ? 'border-emerald-500 bg-emerald-50' 
                             : 'border-blue-500'
                         }`}>
-                          <img src={properties[tiktokIndex]?.landlordAvatar} className="w-full h-full object-cover" />
+                          <img src={properties[tiktokIndex]?.landlordAvatar} className="w-full h-full object-cover" loading="lazy" />
                         </div>
                         {(properties[tiktokIndex]?.verifiedByAdmin || properties[tiktokIndex]?.verificationStatus === 'verified') && (
                           <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white p-0.5 rounded-full border border-white shadow-xs" title="Verified Landlord Host">
@@ -2410,9 +2688,19 @@ export default function MobileEmulator({
                     </div>
 
                     {/* Actions */}
-                    <button className="flex flex-col items-center gap-1 focus:text-pink-500 hover:text-pink-400 transition">
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSavedProperties(prev => 
+                          prev.includes(properties[tiktokIndex]?.id) 
+                            ? prev.filter(id => id !== properties[tiktokIndex]?.id)
+                            : [...prev, properties[tiktokIndex]?.id]
+                        );
+                      }}
+                      className="flex flex-col items-center gap-1 focus:text-pink-500 hover:text-pink-400 transition"
+                    >
                       <div className="p-2.5 bg-black/60 rounded-full">
-                        <Heart className="w-6 h-6 fill-current text-white hover:text-pink-500" />
+                        <Bookmark className={`w-6 h-6 ${savedProperties.includes(properties[tiktokIndex]?.id) ? 'fill-pink-500 text-pink-500' : 'text-white hover:text-pink-500'}`} />
                       </div>
                       <span className="text-xs font-bold">{properties[tiktokIndex]?.likesCount || 10}</span>
                     </button>
@@ -2710,6 +2998,24 @@ export default function MobileEmulator({
                 >
                   <Camera className="w-5 h-5" />
                 </button>
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSavedProperties(prev => 
+                      prev.includes(activeProperty.id) 
+                        ? prev.filter(id => id !== activeProperty.id)
+                        : [...prev, activeProperty.id]
+                    );
+                  }}
+                  className={`p-2.5 rounded-full border shadow-md transition flex items-center justify-center cursor-pointer ${
+                    savedProperties.includes(activeProperty.id)
+                      ? 'bg-pink-50 border-pink-200 text-pink-500'
+                      : 'bg-white border-neutral-200 text-neutral-400 hover:bg-neutral-50 hover:text-pink-500'
+                  }`}
+                  title={savedProperties.includes(activeProperty.id) ? 'Remove from Saved' : 'Save Property'}
+                >
+                  <Bookmark className={`w-5 h-5 ${savedProperties.includes(activeProperty.id) ? 'fill-current' : ''}`} />
+                </button>
               </div>
 
               {/* Main Images Scroller */}
@@ -2742,17 +3048,45 @@ export default function MobileEmulator({
                   </div>
                   <h2 className="text-xl font-bold tracking-tight text-neutral-950 mt-1">{activeProperty.title}</h2>
                   
-                  <div className="flex gap-1 items-center text-xs text-neutral-500 mt-1">
-                    <MapPin className="w-4 h-4 text-red-500" />
-                    <span>{activeProperty.location}</span>
+                  <div className="flex gap-3 items-center text-xs text-neutral-500 mt-1 flex-wrap">
+                    <div className="flex gap-1 items-center">
+                      <MapPin className="w-4 h-4 text-red-500" />
+                      <span>{activeProperty.location}</span>
+                    </div>
+                    {getPropertyReviewsInfo(activeProperty.id).propReviews.length > 0 && (
+                      <div className="flex items-center gap-1 font-bold">
+                        <Star className="w-3.5 h-3.5 text-amber-500 fill-current" />
+                        <span className="text-neutral-800">{getPropertyReviewsInfo(activeProperty.id).averageRating.toFixed(1)}</span>
+                        <span className="text-neutral-400 font-medium">({getPropertyReviewsInfo(activeProperty.id).propReviews.length} reviews)</span>
+                      </div>
+                    )}
                   </div>
                   
-                  <p className="text-lg font-black text-blue-600 mt-2">
-                    KSh {activeProperty.price.toLocaleString()} 
-                    <span className="text-xs font-medium text-neutral-500 ml-1">
-                      /{activeProperty.type === 'airbnb' || activeProperty.type === 'hotel' ? 'day' : 'month'}
-                    </span>
-                  </p>
+                  <div className="flex items-center justify-between mt-2">
+                    <p className="text-lg font-black text-blue-600">
+                      {displayCurrency === 'KSh' 
+                        ? `KSh ${activeProperty.price.toLocaleString()}`
+                        : `USD ${Math.round(activeProperty.price / (exchangeRate || 132)).toLocaleString()}`
+                      }
+                      <span className="text-xs font-medium text-neutral-500 ml-1">
+                        /{activeProperty.type === 'airbnb' || activeProperty.type === 'hotel' ? 'day' : 'month'}
+                      </span>
+                    </p>
+                    <div className="flex bg-neutral-100 rounded-lg p-0.5 border border-neutral-200">
+                      <button
+                        onClick={() => setDisplayCurrency('KSh')}
+                        className={`text-[10px] font-bold px-2 py-1 rounded-md transition-colors ${displayCurrency === 'KSh' ? 'bg-white text-blue-600 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'}`}
+                      >
+                        KSh
+                      </button>
+                      <button
+                        onClick={() => setDisplayCurrency('USD')}
+                        className={`text-[10px] font-bold px-2 py-1 rounded-md transition-colors ${displayCurrency === 'USD' ? 'bg-white text-emerald-600 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'}`}
+                      >
+                        USD
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Bed / Bath parameters */}
@@ -2822,6 +3156,8 @@ export default function MobileEmulator({
                     </div>
                   </div>
                 </div>
+
+                <AIRentEstimator property={activeProperty} />
 
                 <PropertyReviewSection property={activeProperty} />
 
@@ -2957,24 +3293,215 @@ export default function MobileEmulator({
                   </button>
                 </div>
 
+                {/* Reviews Section */}
+                <div className="pt-4 border-t border-neutral-100">
+                  <div className="flex justify-between items-end mb-4">
+                    <div>
+                      <h3 className="text-sm font-bold text-neutral-900">Tenant Reviews</h3>
+                      <p className="text-[10px] text-neutral-500 font-medium mt-0.5">Verified bookings only</p>
+                    </div>
+                    {bookings.some(b => b.propertyId === activeProperty.id && b.tenantId === userProfile.uid && b.status === 'active') && !reviews.some(r => r.propertyId === activeProperty.id && r.tenantId === userProfile.uid) ? (
+                      <button 
+                        onClick={() => setIsReviewing(!isReviewing)}
+                        className="text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition"
+                      >
+                        {isReviewing ? 'Cancel' : 'Write a Review'}
+                      </button>
+                    ) : (
+                       <button 
+                         onClick={() => setIsReviewing(!isReviewing)}
+                         className="text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition"
+                       >
+                         {isReviewing ? 'Cancel' : 'Write a Review'}
+                       </button>
+                    )}
+                  </div>
+
+                  {/* Write a review forms */}
+                  {isReviewing && (
+                    <div className="mb-6 bg-white border border-neutral-200 rounded-2xl p-4 shadow-sm">
+                      <div className="flex gap-2 mb-3 justify-center">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            onClick={() => setNewReviewRating(star)}
+                            className="p-1 focus:outline-none"
+                          >
+                            <Star className={`w-6 h-6 ${star <= newReviewRating ? 'text-amber-400 fill-current' : 'text-neutral-200'}`} />
+                          </button>
+                        ))}
+                      </div>
+                      <textarea
+                        value={newReviewComment}
+                        onChange={(e) => setNewReviewComment(e.target.value)}
+                        placeholder="Tell others what you loved about staying here..."
+                        className="w-full bg-neutral-50 border border-neutral-200 rounded-xl p-3 text-xs text-neutral-800 outline-none focus:border-blue-500 min-h-[80px] resize-none mb-3"
+                      />
+                      <button 
+                        disabled={!newReviewComment.trim()}
+                        onClick={() => {
+                          const newReview: Review = {
+                            id: `rev_${Date.now()}`,
+                            propertyId: activeProperty.id,
+                            tenantId: userProfile.uid,
+                            tenantName: userProfile.name,
+                            tenantAvatar: userProfile.avatar,
+                            rating: newReviewRating,
+                            comment: newReviewComment,
+                            timestamp: new Date().toISOString()
+                          };
+                          setReviews(prev => [newReview, ...prev]);
+                          setIsReviewing(false);
+                          setNewReviewComment('');
+                          setNewReviewRating(5);
+                        }}
+                        className="w-full py-2.5 bg-blue-600 disabled:bg-neutral-300 disabled:text-neutral-500 text-white font-bold text-[11px] rounded-xl flex items-center justify-center transition"
+                      >
+                        Submit Review
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Reviews List */}
+                  {getPropertyReviewsInfo(activeProperty.id).propReviews.length > 0 ? (
+                    <div className="space-y-4">
+                      {getPropertyReviewsInfo(activeProperty.id).propReviews.map(review => (
+                        <div key={review.id} className="bg-neutral-50 rounded-2xl p-3.5 border border-neutral-100">
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="flex gap-2 items-center">
+                              <img src={review.tenantAvatar} className="w-8 h-8 rounded-full object-cover border border-neutral-200 shadow-sm" />
+                              <div>
+                                <p className="text-xs font-bold text-neutral-900 leading-none">{review.tenantName}</p>
+                                <p className="text-[9px] text-neutral-400 mt-1 font-medium">{new Date(review.timestamp).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</p>
+                              </div>
+                            </div>
+                            <div className="flex gap-0.5">
+                              {[...Array(5)].map((_, i) => (
+                                <Star key={i} className={`w-3 h-3 ${i < review.rating ? 'text-amber-400 fill-current' : 'text-neutral-200'}`} />
+                              ))}
+                            </div>
+                          </div>
+                          <p className="text-xs text-neutral-600 leading-relaxed font-medium mt-1.5">
+                            {review.comment}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 bg-neutral-50 border border-neutral-100 border-dashed rounded-2xl">
+                      <Star className="w-6 h-6 text-neutral-300 mx-auto mb-2" />
+                      <p className="text-[11px] text-neutral-500 font-medium">No reviews yet. Be the first to leave one!</p>
+                    </div>
+                  )}
+                </div>
+
               </div>
 
               {/* BOOKING PURCHASE BAR */}
               <div className="h-18 bg-white border-t border-neutral-200 px-4 flex justify-between items-center sticky bottom-0 left-0 w-full shadow-lg">
                 <div className="text-left">
                   <span className="text-[10px] text-neutral-400 block font-bold uppercase">Required deposit</span>
-                  <span className="text-sm font-bold text-neutral-800">KSh {activeProperty.price.toLocaleString()}</span>
+                  <span className="text-sm font-bold text-neutral-800">
+                    {displayCurrency === 'KSh' 
+                      ? `KSh ${activeProperty.price.toLocaleString()}`
+                      : `USD ${Math.round(activeProperty.price / (exchangeRate || 132)).toLocaleString()}`
+                    }
+                  </span>
                 </div>
                 
-                <button 
-                  disabled={activeProperty.isFlagged}
-                  onClick={() => setActiveScreen('checkout')}
-                  className="py-3 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 disabled:from-neutral-400 disabled:to-neutral-500 disabled:text-neutral-500 text-white rounded-2xl text-xs font-black shadow-md active:scale-98 transition flex items-center gap-1 uppercase tracking-wider"
-                >
-                  <Lock className="w-4 h-4 text-white" />
-                  Book with Escrow
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setIsSchedulingTour(true)}
+                    className="p-3 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-2xl flex items-center justify-center font-black active:scale-98 transition shadow-xs border border-neutral-200"
+                    title="Schedule a Tour"
+                  >
+                    <Calendar className="w-4 h-4" />
+                  </button>
+                  <button 
+                    disabled={activeProperty.isFlagged}
+                    onClick={() => setActiveScreen('checkout')}
+                    className="py-3 px-5 bg-gradient-to-r from-blue-600 to-indigo-600 disabled:from-neutral-400 disabled:to-neutral-500 disabled:text-neutral-500 text-white rounded-2xl text-xs font-black shadow-md active:scale-98 transition flex items-center gap-1 uppercase tracking-wider flex-1 justify-center whitespace-nowrap"
+                  >
+                    <Lock className="w-4 h-4 text-white" />
+                    Book
+                  </button>
+                </div>
               </div>
+
+              {/* Tour Scheduling Modal */}
+              {isSchedulingTour && (
+                <div className="absolute inset-0 bg-black/60 z-50 flex items-end justify-center backdrop-blur-sm">
+                  <motion.div 
+                    initial={{ y: "100%" }}
+                    animate={{ y: 0 }}
+                    exit={{ y: "100%" }}
+                    transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                    className="bg-white rounded-t-3xl w-full max-w-sm overflow-hidden flex flex-col p-6 pb-12 relative border-t border-neutral-200 shadow-2xl"
+                  >
+                    <button 
+                      onClick={() => setIsSchedulingTour(false)} 
+                      className="absolute top-5 right-5 p-2 bg-neutral-100 rounded-full text-neutral-500 hover:bg-neutral-200 transition"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                    <h3 className="text-lg font-black text-neutral-900 mb-1">Schedule Tour</h3>
+                    <p className="text-[11px] text-neutral-500 mb-6 font-medium leading-relaxed max-w-[85%]">
+                      Select a date and time to view <span className="font-bold text-neutral-800">{activeProperty.title}</span> in person.
+                    </p>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1.5 block">Preferred Date</label>
+                        <input 
+                          type="date" 
+                          value={tourDate}
+                          onChange={(e) => setTourDate(e.target.value)}
+                          className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 text-sm font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1.5 block">Preferred Time</label>
+                        <input 
+                          type="time" 
+                          value={tourTime}
+                          onChange={(e) => setTourTime(e.target.value)}
+                          className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 text-sm font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition"
+                        />
+                      </div>
+                      <button
+                        disabled={!tourDate || !tourTime}
+                        onClick={() => {
+                          const newBooking: Booking = {
+                            id: 'tour_' + Date.now().toString(),
+                            propertyId: activeProperty.id,
+                            propertyTitle: activeProperty.title,
+                            propertyImage: activeProperty.images[0] || '',
+                            tenantId: currentUser.uid,
+                            tenantName: currentUser.name,
+                            landlordId: activeProperty.landlordId || 'lnd_1',
+                            payoutAmount: 0,
+                            commissionAmount: 0,
+                            amountPaid: 0,
+                            status: 'tour_scheduled',
+                            checkIn: `${tourDate}T${tourTime}:00`,
+                            checkOut: `${tourDate}T${tourTime}:00`,
+                            createdAt: new Date().toISOString(),
+                            escrowStatus: 'held'
+                          };
+                          onAddBooking(newBooking);
+                          setCreatedBooking(newBooking);
+                          setIsSchedulingTour(false);
+                          setActiveScreen('receipt');
+                        }}
+                        className="w-full py-4 mt-2 bg-gradient-to-r from-blue-600 to-indigo-600 disabled:from-neutral-300 disabled:to-neutral-300 disabled:text-neutral-500 text-white font-black text-sm rounded-xl tracking-wide active:scale-98 transition shadow-md flex items-center justify-center gap-2"
+                      >
+                        <Calendar className="w-4 h-4 text-white" />
+                        Confirm Tour
+                      </button>
+                    </div>
+                  </motion.div>
+                </div>
+              )}
             </motion.div>
           )}
 
@@ -3103,7 +3630,12 @@ export default function MobileEmulator({
                   <div className="w-full border-t border-neutral-100 my-2 pt-2 text-xs space-y-1.5 font-semibold text-neutral-600">
                     <div className="flex justify-between">
                       <span>Rent / Deposit amount</span>
-                      <span>KSh {activeProperty.price.toLocaleString()}</span>
+                      <span>
+                        {displayCurrency === 'KSh' 
+                          ? `KSh ${activeProperty.price.toLocaleString()}`
+                          : `USD ${Math.round(activeProperty.price / (exchangeRate || 132)).toLocaleString()}`
+                        }
+                      </span>
                     </div>
                     <div className="flex justify-between text-neutral-400 text-[11px]">
                       <span>StayLink Protection Fee</span>
@@ -3112,8 +3644,13 @@ export default function MobileEmulator({
                   </div>
 
                   <div className="border-t border-neutral-100 pt-3 flex justify-between font-black text-sm text-neutral-900">
-                    <span>Total due KSh</span>
-                    <span className="text-blue-600">KSh {activeProperty.price.toLocaleString()}</span>
+                    <span>Total due {displayCurrency}</span>
+                    <span className="text-blue-600">
+                      {displayCurrency === 'KSh' 
+                        ? `KSh ${activeProperty.price.toLocaleString()}`
+                        : `USD ${Math.round(activeProperty.price / (exchangeRate || 132)).toLocaleString()}`
+                      }
+                    </span>
                   </div>
                 </div>
 
@@ -3160,7 +3697,12 @@ export default function MobileEmulator({
                     <div className="w-12 h-12 bg-emerald-600 text-white rounded-full mx-auto flex items-center justify-center text-xl font-black">M</div>
                     <h3 className="text-sm font-bold uppercase tracking-widest text-emerald-400">Safaricom Pay Utility</h3>
                     <p className="text-xs text-neutral-400">
-                      Do you want to deposit <span className="font-bold text-white text-sm">KSh {activeProperty.price.toLocaleString()}</span> to <span className="font-bold text-white">StayLink AI Escrow Wallet</span> for booking approval?
+                      Do you want to deposit <span className="font-bold text-white text-sm">
+                        {displayCurrency === 'KSh' 
+                          ? `KSh ${activeProperty.price.toLocaleString()}`
+                          : `USD ${Math.round(activeProperty.price / (exchangeRate || 132)).toLocaleString()}`
+                        }
+                      </span> to <span className="font-bold text-white">StayLink AI Escrow Wallet</span> for booking approval?
                     </p>
 
                     <div className="space-y-2 text-left">
@@ -3212,7 +3754,11 @@ export default function MobileEmulator({
             >
               <div className="flex justify-between items-center text-xs">
                 <span>Receipt Index: #ST{createdBooking.id.split('_')[1]}</span>
-                <span className="font-bold uppercase tracking-wider text-emerald-600 bg-emerald-100 py-0.5 px-2 rounded-sm shadow-2xs">Paid</span>
+                {createdBooking.status === 'tour_scheduled' ? (
+                  <span className="font-bold uppercase tracking-wider text-blue-600 bg-blue-100 py-0.5 px-2 rounded-sm shadow-2xs">Tour Scheduled</span>
+                ) : (
+                  <span className="font-bold uppercase tracking-wider text-emerald-600 bg-emerald-100 py-0.5 px-2 rounded-sm shadow-2xs">Paid</span>
+                )}
               </div>
 
               {/* Printable Area styled like vintage receipt voucher */}
@@ -3228,25 +3774,40 @@ export default function MobileEmulator({
 
                   <div className="border-t border-dashed border-neutral-200 pt-3 space-y-1 text-[11px] font-semibold text-neutral-600">
                     <p>Tenant: {createdBooking.tenantName}</p>
-                    <p>M-Pesa Code: {createdBooking.mpesaTransactionCode}</p>
+                    {createdBooking.status !== 'tour_scheduled' && <p>M-Pesa Code: {createdBooking.mpesaTransactionCode}</p>}
                     <p>Created: {new Date(createdBooking.createdAt).toLocaleString()}</p>
                     <p className="text-neutral-900 line-clamp-1 mt-1 font-bold">Property: {createdBooking.propertyTitle}</p>
                   </div>
 
                   <div className="border-t border-dashed border-neutral-200 pt-3 space-y-1.5 text-[11px]">
-                    <div className="flex justify-between">
-                      <span>Rent Paid:</span>
-                      <span>KSh {createdBooking.amountPaid.toLocaleString()}</span>
-                    </div>
-                    {/* Automated Commission deduction visual */}
-                    <div className="flex justify-between font-bold text-sky-700">
-                      <span>StayLink (10% fee):</span>
-                      <span>-KSh {createdBooking.commissionAmount.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between text-[#16a34a] font-bold">
-                      <span>Host Payout (90%):</span>
-                      <span>KSh {createdBooking.payoutAmount.toLocaleString()}</span>
-                    </div>
+                    {createdBooking.status === 'tour_scheduled' ? (
+                      <div className="flex flex-col space-y-2">
+                        <div className="flex justify-between font-bold text-neutral-900">
+                          <span>Tour Date:</span>
+                          <span>{new Date(createdBooking.checkIn).toLocaleDateString()}</span>
+                        </div>
+                        <div className="flex justify-between font-bold text-blue-600">
+                          <span>Tour Time:</span>
+                          <span>{new Date(createdBooking.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex justify-between">
+                          <span>Rent Paid:</span>
+                          <span>KSh {createdBooking.amountPaid.toLocaleString()}</span>
+                        </div>
+                        {/* Automated Commission deduction visual */}
+                        <div className="flex justify-between font-bold text-sky-700">
+                          <span>StayLink (10% fee):</span>
+                          <span>-KSh {createdBooking.commissionAmount.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-[#16a34a] font-bold">
+                          <span>Host Payout (90%):</span>
+                          <span>KSh {createdBooking.payoutAmount.toLocaleString()}</span>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -3361,6 +3922,26 @@ export default function MobileEmulator({
                   </div>
                 </div>
 
+                {/* Identity Verification */}
+                <div className="bg-white rounded-3xl p-5 border border-neutral-100 shadow-2xs flex flex-col gap-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Identity Verification</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-neutral-800">
+                      {userProfile.verificationBadges.includes('id_uploaded') ? '✓ ID Uploaded' : 'Verify National ID'}
+                    </span>
+                    {!userProfile.verificationBadges.includes('id_uploaded') && (
+                      <button 
+                        onClick={() => {
+                          setActiveScreen('tenant_verification_camera');
+                        }}
+                        className="text-[10px] bg-blue-600 hover:bg-blue-700 text-white py-1 px-3 rounded-full font-black uppercase transition cursor-pointer"
+                      >
+                        Scan ID
+                      </button>
+                    )}
+                  </div>
+                </div>
+
                 {/* Wallet engine */}
                 <div className="bg-white rounded-3xl p-5 border border-neutral-100 shadow-2xs flex flex-col gap-3">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Escrow Protected wallet</span>
@@ -3422,10 +4003,27 @@ export default function MobileEmulator({
                     >
                       {roommates.find(r => r.uid === userProfile.uid) ? 'Update Profile' : 'Add Profile'}
                     </button>
+                    <button 
+                      onClick={() => setIsQuestionnaireOpen(true)}
+                      className="w-full py-3 bg-neutral-900 text-white rounded-xl text-xs font-bold uppercase shadow-md active:scale-98 transition mt-2 cursor-pointer"
+                    >
+                      Take Preferences Questionnaire
+                    </button>
                   </div>
                 )}
 
               </div>
+
+              <AnimatePresence>
+                {isQuestionnaireOpen && (
+                  <RoommateQuestionnaire 
+                    onClose={() => setIsQuestionnaireOpen(false)}
+                    onSubmit={(data) => {
+                      console.log('Questionnaire Data:', data);
+                    }}
+                  />
+                )}
+              </AnimatePresence>
 
               <div className="flex gap-2.5 w-full mt-2">
                 <button 
@@ -3558,6 +4156,19 @@ export default function MobileEmulator({
                   <span className="text-[9px] font-bold uppercase tracking-tight">Admin</span>
                 </button>
               </div>
+            </motion.div>
+          )}
+
+          {/* 12. TENANT VERIFICATION CAMERA SCREEN */}
+          {activeScreen === 'tenant_verification_camera' && (
+            <motion.div key="tenant_verification_camera" {...pageTransitions} className="flex-1 flex flex-col w-full h-full">
+              <TenantVerificationScreen 
+                onBack={() => setActiveScreen('profile')}
+                onComplete={(img) => {
+                   setUserProfile(prev => ({ ...prev, isVerifiedTenant: true }));
+                   setActiveScreen('profile');
+                }}
+              />
             </motion.div>
           )}
 
